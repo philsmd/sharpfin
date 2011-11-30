@@ -1,0 +1,4 @@
+This directory contains tools required to develop, install and configure
+reciva applications.
+
+These tools are to be run on the development host, NOT the radio.

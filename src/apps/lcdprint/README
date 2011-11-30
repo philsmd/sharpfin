@@ -1,0 +1,16 @@
+lcdprint
+
+OVERVIEW
+
+This is a simple program, to print some text on the LCD display.  It is
+provided for use in install scripts, to inform the user on the current state
+of play (rather than installing blind).
+
+It displays each of its args on a separate line on the display.
+
+Note that not all screens have 4 lines, so take care whe writing generic
+scripts. Although the app won't crash, the user won't see the bottom lines.
+
+
+EXAMPLE
+lcdprint "Top Line" "Middle Line" "Third Line" "Fourth Line"

@@ -1,0 +1,18 @@
+#!/bin/ash
+# 
+# getarg
+#
+# This script returns the requested argument from QUERY_STRING
+#
+if [ "$1" = "" ]; then
+  echo "getarg query_string_argument"
+  exit
+fi
+QUERY="`echo \"$QUERY_STRING\" | sed 's/&/ /g'`"
+for i in $QUERY; do
+  ARG="`echo \"$i\" | cut -d= -f1`"
+  if [ "$ARG" = "$1" ]; then
+    httpd -d "`echo \"$i\" | cut -d= -f2`"
+  fi
+done
+

@@ -1,0 +1,55 @@
+Version: $Id: readme.txt 266 2008-04-14 10:11:28Z steve $
+
+PATCHSERVER
+===========
+
+This patchserver enables the changing or installation of firmware
+or applications on a Reciva based radio.
+
+patchserver-launcher.exe
+------------------------
+
+This program is a windows-based application, and should be run as the
+administrator. It obtains an address from the patchfiles.lst file, 
+and downloads a list of available patches from an internet server.
+
+Once the user has selected the required patch and real DNS server, the
+launcher runs the main application - patchserver-commandline.exe
+
+patchserver-commandline.exe
+---------------------------
+
+This program currently requires Cygwin to be installed in order to run.
+The program starts a webserver (on port 80) and a DNS server (on port 53)
+The Radio must be re-configured to use this machine as its DNS server.
+When the radio upgrade is performed, this computer tells the radio where
+the patches are.
+
+PATCHFILES.LST
+==============
+
+This file either contains a webserver, path and port number - e.g.:
+  [DOMAIN] http://[DOMAIN]/[PATH]/?[ATTRIBUTES]=patchfiles.lst 80
+
+or it contains a list of local / remote files to offer:
+  - - -
+  PATCHFILE 257-a-615-a-076.patch 615-076 Patch
+  PATCHFILE 257-a-421-a-025.patch 421-025 Patch
+  PATCHFILE sharpfin-test.patch Sharpfin Test Patch
+  PATCHFILE http://[DOMAIN]/Sharpfin-base_0.3.patch Sharpfin Install Patch Version 0.3 (includes Sharpfin Webserver 0.6)
+
+UPDATE HISTORY
+==============
+
+SVN Release = $Revision: 266 $
+2008-04-13	0.7rc1	Significant re-design.  No longer relies on
+			posix style threads.  Supports reciva upgrades
+			without having to install webserver.
+2007-10-07	0.5	Modified DNS listener to automatically re-open socket
+			if Windows decides to close it.
+2007-09-29	0.4	Fourth Alpha release. Enabled application of .install
+			scripts in addition to .patch scripts.
+2007-09-27	0.3	Third Alpha Release. Fixed DNS blocking ...OK issue.
+2007-09-24	0.2	Second Alpha Release.  Added GUI front-end to windows
+			version
+2007-09-22	0.1	Initial Alpha Release.

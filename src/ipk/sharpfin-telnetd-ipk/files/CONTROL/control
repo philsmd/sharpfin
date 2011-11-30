@@ -1,0 +1,13 @@
+Package: sharpfin-telnetd
+Priority: optional
+Version:  0.1
+Architecture: arm
+Maintainer: Sharpfin Project (http://www.sharpfin.zevv.nl/)
+Source: http://www.sharpfin.zevv.nl/gpl
+Depends: sharpfin-base
+Provides: admin_account user_account telnetd_initscript
+Section: extras
+Description: sharpfin-telnetd includes the confguration scripts to run a
+ telnetd server on the radio.
+ .
+ $Revision: 237 $

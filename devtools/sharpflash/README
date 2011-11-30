@@ -1,0 +1,55 @@
+PROGRAMS
+========
+
+sharpflash
+----------
+
+This program drives a wiggler-style parallel port JTAG adaptor, and contains
+functions to manage the NAND Flash memory of a Reciva Barracuda module.
+
+The program is based on the sj2410 programmer by purnnamu, and the K3F1208 
+patch by Robert Fitzsimons.
+
+The program provides three functions:
+-b	Bad block check - gives a visual indication of the good/bad blocks
+	in the NAND flash.
+-r	Read data.
+-w	Write data.
+
+Data is stored and handled in 'nanddump' format, i.e. the data file is
+organised in pages, each page containing 512 bytes of data followed by 16
+bytes of extra (out of band) data.  The 512 bytes is actual data from the disk,
+and the 16 bytes contains error correction codes.
+
+getpart
+-------
+
+This program is used to extract partition data from a contiguous file that is
+not in 'nanddump' format, such as the programming mtd.bin files used during
+the Reciva upgrades.
+
+This program uses a modified version of the nand_ecc.c file, which is included
+in the linux kernel, and was originally developed by Steven J Hill, Toshiba.
+
+LICENSE
+=======
+
+sharpflash and getpart are released under the GNU General Public License v3.
+Please read LICENSE for more information.
+
+COMPILING
+=========
+
+The programs are built using 'gcc', and compilation is performed with:
+  make
+
+For the Linux platform, and on the Windows platform, please use:
+  make -f Makefile.windows
+
+Note that by default, on a Linux hosts, sharpflash uses device /dev/parport0,
+and this must either be accessible by a mortal user, or the sharpflash program
+must be run as root.
+
+Note that on windows, the program tries to open ports LPT1: LPT2: and LPT3:,
+and will use the first successful port.  sharpflash has only been tested on
+a Linux platform.

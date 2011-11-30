@@ -1,0 +1,10 @@
+This directory contains the reciva kernel files and additional drivers.
+The directory linux_bast contains the latest version of the kernel -
+reciva release can be found in RECIVA_KERNEL_VERSION
+
+Note that Git only holds the include files (to keep the size down).
+If the full kernel source is needed, it can be obtained from:
+http://copper.reciva.com/sources
+
+The drivers directory contains additional drivers, which are built with
+the latest kernel.

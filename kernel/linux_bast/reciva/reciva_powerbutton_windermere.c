@@ -1,0 +1,208 @@
+/*
+ * linux/reciva/reciva_powerbutton_windermere.c
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * Copyright (c) 2004 Reciva Ltd. All Rights Reserved
+ * 
+ * Power Button driver for Reciva Windermere Application boards
+ *
+ */
+
+   /*************************************************************************/
+   /***                        Include Files                              ***/
+   /*************************************************************************/
+
+#include <linux/module.h>
+#include <linux/proc_fs.h>
+#include <linux/input.h>
+
+#include <asm/delay.h>
+#include <asm/hardware.h>
+#include <asm/irq.h>
+
+
+   /*************************************************************************/
+   /***                        Static functions                           ***/
+   /*************************************************************************/
+
+static int is_power_on(void);
+static int read_procmem(char *buf, char **start, off_t offset, 
+                        int count, int *eof, void *data);
+static void reciva_power_int_handler(int irq, void *dev, struct pt_regs *regs);
+static void led_off(void);
+
+
+   /*************************************************************************/
+   /***                        Local Constants                            ***/
+   /*************************************************************************/
+
+/* Registers */
+#define GPIO_REG(x)	*((volatile unsigned int *)(S3C2410_VA_GPIO + (x)))
+/* GPIO port G */
+#define GPGCON	GPIO_REG(0x60)
+#define GPGDAT	GPIO_REG(0x64)
+#define GPGUP   GPIO_REG(0x68)
+/* GPIO port H */
+#define GPHCON GPIO_REG(0x70)
+#define GPHDAT GPIO_REG(0x74)
+#define GPHUP GPIO_REG(0x78)
+
+#define EXTINT1 GPIO_REG(0x8c)
+
+
+   /*************************************************************************/
+   /***                        Static Data                                ***/
+   /*************************************************************************/
+
+static struct input_dev *input_dev;
+
+/* Stores the last power status. Used to ensure that we don't send multiple
+ * identical events for 1 key press. */
+static int power_is_on_old;
+
+
+
+/*****************************************************************************
+ * Initialise kernel module
+ *****************************************************************************/
+int  
+init_module(void) 
+{
+  power_is_on_old = -1;
+
+  /* Initialise proc entry */
+  create_proc_read_entry("driver/powerbutton", 0, NULL, read_procmem, NULL);
+
+  /* Set up the input device */
+  input_dev = kmalloc(sizeof(*input_dev), GFP_KERNEL);
+  memset(input_dev, 0, sizeof(*input_dev));
+
+#ifdef KERNEL_26
+  init_input_dev(input_dev);
+#endif
+
+  input_dev->evbit[0] = BIT(EV_KEY);
+  set_bit(BTN_X, input_dev->keybit);
+  set_bit(BTN_Y, input_dev->keybit);
+  input_dev->name = "reciva powbut";
+
+  input_register_device(input_dev);
+
+
+  /* The power button is connected to GPG6. Needs a pull up.  */
+  GPGUP &= ~(1 << 6);     /* Pull up enabled */
+  GPGCON &= ~(3 << 12);
+  GPGCON |= (2 << 12);    /* Pin function = EINT(14) */
+
+  /* Request the interrupt */
+  EXTINT1 |= (7 << 24); /* *Both edge triggered */
+  request_irq(IRQ_EINT14, reciva_power_int_handler, 0, "EINT14", (void *)14);
+
+
+  /* Turn the LED off if the power button is off 
+   * The LED is owned by the LCD module. However we don't want to init the LCD
+   * module as this will turn the LCD backlight on. So this will have to do for
+   * now */
+  if (is_power_on() == 0)
+    led_off();  
+
+  printk("Reciva windermere power button module: loaded\n"); 
+  return 0;
+}
+
+/*****************************************************************************
+ * Cleanup kernel module
+ *****************************************************************************/
+void 
+cleanup_module(void)
+{ 
+  remove_proc_entry("powerbutton", NULL);
+
+  input_unregister_device(input_dev);
+  
+  kfree(input_dev);
+
+  printk("Reciva windermere power button module: unloaded\n"); 
+}
+
+/*****************************************************************************
+ * Read current status of power button
+ *****************************************************************************/
+static int 
+is_power_on(void)
+{
+  int power_is_on;
+
+  udelay(1000); /* Delay before reading to allow for debounce */
+  if (GPGDAT & (1<<6))
+    power_is_on = 0;
+  else
+    power_is_on = 1;
+    
+  return power_is_on;
+}
+
+/*****************************************************************************
+ * Provide data to file in /proc about current status
+ *****************************************************************************/
+static int 
+read_procmem(char *buf, char **start, off_t offset, 
+                        int count, int *eof, void *data)
+{
+  *eof = 1;
+  return sprintf(buf, "%d\n", is_power_on());
+}
+
+/****************************************************************************
+ * Handles interrupt generated by the soft power button
+ ****************************************************************************/
+static void 
+reciva_power_int_handler(int irq, void *dev, struct pt_regs *regs)
+{
+  /* Disable interrupt */
+  disable_irq(IRQ_EINT14);
+
+  int poweron = is_power_on();
+  printk("Power Button : %d (%d)\n", poweron, power_is_on_old);
+  if (poweron != power_is_on_old)
+  {
+    if (poweron)
+    {
+      input_report_key(input_dev, BTN_X, 1);
+      input_report_key(input_dev, BTN_X, 0);
+    }
+    else
+    {
+      input_report_key(input_dev, BTN_Y, 1);
+      input_report_key(input_dev, BTN_Y, 0);
+    } 
+
+#ifdef KERNEL_26
+    input_sync (input_dev);
+#endif
+  }
+
+  power_is_on_old = poweron;
+
+  /* Enable interrupt */
+  enable_irq(IRQ_EINT14);
+}
+
+/****************************************************************************
+ * Turns LED off
+ ****************************************************************************/
+static void
+led_off(void)
+{
+  /* LED
+     Processor pin = K12 (GPH7). Active high. */
+  GPHCON |= (4 << 14);
+  GPHCON &= ~(2 << 14); // Set pin as an output
+  GPHUP &= ~(1 << 7);   // disable pullup
+  GPHDAT &= ~(1 << 7);  // output off
+}
+
+MODULE_LICENSE("GPL");

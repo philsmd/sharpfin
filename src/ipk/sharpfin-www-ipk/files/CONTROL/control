@@ -1,0 +1,15 @@
+Package: sharpfin-www
+Priority: optional
+Version: 0.6
+Architecture: arm
+Maintainer: Sharpfin Project (http://www.sharpfin.zevv.nl/)
+Source: http://www.sharpfin.zevv.nl/gpl
+Depends: sharpfin-base sharpfin-httpd
+Section: extras
+Provides: webserver_files
+Description: sharpfin-www contains the webserver files.
+ The webserver is in the sharpfin-base package, and the init scripts are
+ in the sharpfin-httpd package.
+ .
+ $Revision: 243 $
+ .

@@ -1,0 +1,13 @@
+Package: sharpfin-ftpd
+Priority: optional
+Version:  0.1
+Architecture: arm
+Maintainer: Sharpfin Project (http://www.sharpfin.zevv.nl/)
+Source: http://www.sharpfin.zevv.nl/gpl
+Depends: sharpfin-base
+Section: extras
+Provides: ftpd_init
+Description: ftpd_init contains the startup script for the FTP server
+ .
+ $Revision: 195 $
+ .

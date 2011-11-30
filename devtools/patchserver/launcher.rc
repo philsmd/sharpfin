@@ -1,0 +1,53 @@
+/* 
+ * Sharpfin project
+ * Copyright (C) by Steve Clarke <smclarke@trumpton.org.uk> and 
+ *   Ico Doornekamp <ico@zevv.nl>
+ * 2011-11-30 Philipp Schmidt
+ *   Added to github 
+ *
+ * This file is part of the sharpfin project
+ *  
+ * This Library is free software: you can redistribute it and/or modify 
+ * it under the terms of the GNU General Public License as published by 
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This Library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *  
+ * You should have received a copy of the GNU General Public License
+ * along with this source files. If not, see
+ * <http://www.gnu.org/licenses/>.
+ */
+
+#include <windows.h>
+#include "launcher.h"
+IDI_APP_ICON   ICON    DISCARDABLE "launcher.ico"
+IDI_APP48_ICON ICON    DISCARDABLE "launcher48.ico"
+
+IDD_DLGINPUT DIALOGEX 22, 17, 231, 55
+CAPTION "Input Required"
+FONT 8, "MS Shell Dlg", 700, 0, 0x0
+BEGIN
+    LTEXT           "Input ... ",IDC_PROMPT,6,4,157,33
+    EDITTEXT        IDC_TEXT,6,37,216,14
+    DEFPUSHBUTTON   "OK",IDOK,171,4,51,14,WS_GROUP
+END
+
+IDD_DLGSELECT DIALOG DISCARDABLE  20, 20, 345, 200
+STYLE DS_MODALFRAME | WS_OVERLAPPED | WS_CAPTION | WS_VISIBLE | WS_SYSMENU
+CAPTION "Patchserver Launcher"
+FONT 8, "Helv"
+BEGIN
+	CONTROL "",                         IDC_LIST, "LISTBOX", WS_CHILD | WS_VISIBLE | WS_BORDER | WS_VSCROLL | WS_TABSTOP, 3, 38, 338, 145
+	CONTROL "Start Server >>",          IDOK, "BUTTON", BS_PUSHBUTTON | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 277, 183, 60, 14
+	CONTROL "Real DNS Server Address:", 200, "STATIC", SS_LEFT | WS_CHILD | WS_VISIBLE, 3, 3, 117, 8
+	CONTROL "Select Patch / Firmware",  201, "STATIC", SS_LEFT | WS_CHILD | WS_VISIBLE, 5, 28, 117, 8
+	CONTROL "x.x.x.x",                  IDC_DNS, "EDIT", ES_LEFT | ES_AUTOHSCROLL | WS_CHILD | WS_VISIBLE | WS_BORDER | WS_TABSTOP, 5, 15, 335, 12
+	CONTROL "Cancel",                   IDCANCEL, "BUTTON", BS_PUSHBUTTON | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 233, 183, 40, 14
+END
+
+
+

@@ -1,0 +1,51 @@
+#!/bin/sh
+# Sharpfin project
+# Copyright (C) by Steve Clarke <smclarke@trumpton.org.uk> and 
+#   Ico Doornekamp <ico@zevv.nl>
+# 2011-11-30 Philipp Schmidt
+#   Added to github 
+# 
+# This file is part of the sharpfin project
+#  
+# This Library is free software: you can redistribute it and/or modify 
+# it under the terms of the GNU General Public License as published by 
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This Library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#  
+# You should have received a copy of the GNU General Public License
+# along with this source files. If not, see
+# <http://www.gnu.org/licenses/>.
+
+# Add admin/admin and user/user to the passwd file
+ADMIN="`grep admin /etc/passwd`"
+if [ "$ADMIN" = "" ]; then
+  echo "Adding Admin Account to System (username=admin, password=admin)"
+  echo "admin:\$1\$v63zk0C/\$u0r2IqoC1sTbA8Vyph.0z.:0:0:Administrator:/root:/bin/sh" >> /etc/passwd
+fi
+
+GUEST="`grep user /etc/passwd`"
+if [ "$GUEST" = "" ]; then
+  echo "Adding User Account to System (username=user, password=user)"
+  echo "user:\$1\$aBOz369S\$01LYQvxEE8Q4GYEAyYYBz1:500:500:User:/opt:/bin/sh" >> /etc/passwd
+fi
+
+GROUP="`grep user /etc/group`"
+if [ "$GROUP" = "" ]; then
+  echo "Adding User Group"
+  echo "user:\*:500:" >> /etc/group
+fi
+
+# Flushing Disks
+sync
+
+# Start telnetd server
+echo "Starting Telnet Server Now"
+/etc/rc2.d/S10telnetd
+
+echo "Post-Install Complete"
+exit 0

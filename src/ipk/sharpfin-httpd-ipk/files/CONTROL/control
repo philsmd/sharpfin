@@ -1,0 +1,13 @@
+Package: sharpfin-httpd
+Priority: optional
+Version:  0.1
+Architecture: arm
+Maintainer: Sharpfin Project (http://www.sharpfin.zevv.nl/)
+Source: http://www.sharpfin.zevv.nl/gpl
+Depends: sharpfin-base
+Section: extras
+Provides: httpd_init
+Description: sharpfin-httpd contains the startup script for the webserver
+ .
+ $Revision: 195 $
+ .

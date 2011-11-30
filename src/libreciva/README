@@ -1,0 +1,9 @@
+libreciva is a library providing access to the hardware through the reciva
+library.
+
+$Revision: 232 $
+
+REVISION HISTORY
+
+232 	23 Oct 2007	Initial test release, which contains many
+			known bugs and shortcomings.
