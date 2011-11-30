@@ -1,6 +1,6 @@
 # About
 
-This project aims to revive the sharpfin project (http://reciva-users.wikispot.org/Sharpfinquickguide at its time hosted on http://zevv.nl - sharpfin.zevv.nl).
+This project aims to revive the sharpfin project (http://reciva-users.wikispot.org/Sharpfinquickguide, at its time hosted on http://zevv.nl - sharpfin.zevv.nl).
 This is a slightly modified version of the full SVN repository (at least this is what the main authors told me).
 Please help as much as you can to revive this great project.
 We need to adapt the code to new firmwares and test it.
@@ -11,8 +11,8 @@ Did you also like this project and didn't believe that this project quit so imme
 This is for developers only. No warranty!
 I'm NOT one of the main developers but I was kindly provided by the whole code of the old sharpfin project (so don't ask difficult questions, I'm NOT yet expert of the code).
 
-Thx for all contributors
-Happy Hacking!
+Thx for all contributors  
+Happy Hacking!  
 
 P.S. Please also help to clear copyright and licensing issues
 
