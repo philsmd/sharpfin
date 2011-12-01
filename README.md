@@ -57,7 +57,7 @@ Hardware:
 * and,and,and (add your suggestions here, but please help also to implement them)
 
 # Credits and Contributors 
-Credits go to all developers of the following libraries:
+Credits go to the main developers of the former sharpfin project, among others:
   
 * Steve Clarke
 * Ico Doornekamp
