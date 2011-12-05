@@ -16,6 +16,8 @@ Happy Hacking!
 
 P.S. Please also help to clear copyright and licensing issues
 
+** NEW WIKI ** [Sharpfin Wiki](http://pschmidt.it/sharpfin "Sharpfin Wiki")
+
 
 # Features  
 * Web frontend
