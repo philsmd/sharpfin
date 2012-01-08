@@ -20,5 +20,5 @@
 # <http://www.gnu.org/licenses/>.
 
 SUBDIRS = sharpfin-base-ipk sharpfin-ftpd-ipk sharpfin-httpd-ipk \
-	  sharpfin-telnetd-ipk sharpfin-www-ipk
+	  sharpfin-telnetd-ipk sharpfin-www-ipk sharpfin-lircd-ipk
 include ../Rules.mak

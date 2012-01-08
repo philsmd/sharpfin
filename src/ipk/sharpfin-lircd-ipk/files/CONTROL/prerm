@@ -1,0 +1,5 @@
+#!/bin/sh
+killall lircd-r
+killall lircd
+killall irsend
+exit 0

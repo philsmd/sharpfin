@@ -1,0 +1,3 @@
+#!/bin/sh
+
+mv /usr/sbin/lircd.orig /usr/sbin/lircd

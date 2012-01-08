@@ -1,0 +1,21 @@
+#!/bin/sh
+
+CONFVAL=`readconfig`
+RECIVA_HW_CONFIG=$((0x$CONFVAL & 0x3FF)) 
+if test -f /etc/config/lircd_config$RECIVA_HW_CONFIG.conf
+then
+    cp /etc/config/lircd_config$RECIVA_HW_CONFIG.conf /etc/config/lircd.conf
+else
+    cp /etc/config/lircd_config1011.conf /etc/config/lircd.conf
+fi
+
+killall lircd
+killall lircd-r
+
+if test `ls -l /usr/sbin/lircd  | awk '{ print $5 }'` -eq 51
+then
+    echo ok
+else
+    mv /usr/sbin/lircd /usr/sbin/lircd.orig >> /mnt/debug/patch.log 2>&1
+    mv /usr/sbin/lircd.sh /usr/sbin/lircd >> /mnt/debug/patch.log 2>&1
+fi
