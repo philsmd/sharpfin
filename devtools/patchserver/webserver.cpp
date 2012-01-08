@@ -47,8 +47,8 @@ char _webserver_tarfile[1024] ;
 char _webserver_tarfile_isurl ;
 
 int webserver_openlistener(char *tarfile) {
-	int sockfd, fd, clilen, err, pid, opt;
-	struct sockaddr_in cli_addr, serv_addr;
+	int sockfd, err;
+	struct sockaddr_in serv_addr;
 
 	strncpy(_webserver_tarfile, tarfile, 1023) ;
 	_webserver_tarfile_isurl = (strncmp(tarfile, "http://",7)==0) || (strncmp(tarfile, "reciva://", 9)==0) || 
@@ -85,7 +85,8 @@ int webserver_openlistener(char *tarfile) {
 }
 
 int webserver_command(int weblistener) {
-	int sockfd, fd, clilen, err, pid, opt;
+	int sockfd, fd, clilen, err, pid;
+	const char * opt="1";
 	struct sockaddr_in cli_addr, serv_addr;
 	clilen = sizeof(cli_addr);
 	fd = accept(weblistener, (struct sockaddr *) &cli_addr, (socklen_t *) &clilen);
@@ -94,9 +95,8 @@ int webserver_command(int weblistener) {
 	} else {
 	
 		/* I have no idea which sockopts to set.  This is from busybox httpd */
-		opt=1 ;
-		setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt));
-		setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt));
+		setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, opt, sizeof(opt));
+		setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, opt, sizeof(opt));
 
 		printf("webserver: %s: ", inet_ntoa(cli_addr.sin_addr)) ; fflush(stdout) ;
 
