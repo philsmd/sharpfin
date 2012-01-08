@@ -16,7 +16,6 @@ help:
 	@echo 'Configuration:'
 	@echo '  allnoconfig		- disable all symbols in .config'
 	@echo '  allyesconfig		- enable all symbols in .config (see defconfig)'
-	@echo '  allbareconfig		- enable all applets without any sub-features'
 	@echo '  config		- text based configurator (of last resort)'
 	@echo '  defconfig		- set .config to largest generic configuration'
 	@echo '  menuconfig		- interactive curses-based configurator'
@@ -24,10 +23,10 @@ help:
 	@echo '  hosttools  		- build sed for the host.'
 	@echo '  			  You can use these commands if the commands on the host'
 	@echo '  			  is unusable. Afterwards use it like:'
-	@echo '			  make SED="$(objtree)/sed"'
+	@echo '  			  make SED="$(objtree)/sed"'
 	@echo
 	@echo 'Installation:'
-	@echo '  install		- install busybox into $(CONFIG_PREFIX)'
+	@echo '  install		- install busybox into CONFIG_PREFIX'
 	@echo '  uninstall'
 	@echo
 	@echo 'Development:'
