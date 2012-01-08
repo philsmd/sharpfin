@@ -11,24 +11,23 @@
  */
 
 #include "common.h"
-#include "dhcpd.h"
 #include "options.h"
 
 /* constants */
-#define SELECT_TIMEOUT 5 /* select timeout in sec. */
-#define MAX_LIFETIME 2*60 /* lifetime of an xid entry in sec. */
-#define MAX_INTERFACES 9
-
+#define SERVER_PORT      67
+#define SELECT_TIMEOUT    5 /* select timeout in sec. */
+#define MAX_LIFETIME   2*60 /* lifetime of an xid entry in sec. */
 
 /* This list holds information about clients. The xid_* functions manipulate this list. */
-static struct xid_item {
+struct xid_item {
+	unsigned timestamp;
+	int client;
 	uint32_t xid;
 	struct sockaddr_in ip;
-	int client;
-	time_t timestamp;
 	struct xid_item *next;
-} dhcprelay_xid_list = {0, {0}, 0, 0, NULL};
+};
 
+#define dhcprelay_xid_list (*(struct xid_item*)&bb_common_bufsiz1)
 
 static struct xid_item *xid_add(uint32_t xid, struct sockaddr_in *ip, int client)
 {
@@ -41,7 +40,7 @@ static struct xid_item *xid_add(uint32_t xid, struct sockaddr_in *ip, int client
 	item->ip = *ip;
 	item->xid = xid;
 	item->client = client;
-	item->timestamp = time(NULL);
+	item->timestamp = monotonic_sec();
 	item->next = dhcprelay_xid_list.next;
 	dhcprelay_xid_list.next = item;
 
@@ -52,7 +51,7 @@ static void xid_expire(void)
 {
 	struct xid_item *item = dhcprelay_xid_list.next;
 	struct xid_item *last = &dhcprelay_xid_list;
-	time_t current_time = time(NULL);
+	unsigned current_time = monotonic_sec();
 
 	while (item != NULL) {
 		if ((current_time - item->timestamp) > MAX_LIFETIME) {
@@ -114,73 +113,59 @@ static int get_dhcp_packet_type(struct dhcpMessage *p)
 }
 
 /**
- * signal_handler - handles signals ;-)
- * sig - sent signal
- */
-static smallint dhcprelay_stopflag;
-
-static void dhcprelay_signal_handler(int sig)
-{
-	dhcprelay_stopflag = 1;
-}
-
-/**
  * get_client_devices - parses the devices list
  * dev_list - comma separated list of devices
  * returns array
  */
 static char **get_client_devices(char *dev_list, int *client_number)
 {
-	char *s, *list, **client_dev;
+	char *s, **client_dev;
 	int i, cn;
 
 	/* copy list */
-	list = xstrdup(dev_list);
-	if (list == NULL) return NULL;
+	dev_list = xstrdup(dev_list);
 
-	/* get number of items */
-	for (s = dev_list, cn = 1; *s; s++)
-		if (*s == ',')
+	/* get number of items, replace ',' with NULs */
+	s = dev_list;
+	cn = 1;
+	while (*s) {
+		if (*s == ',') {
+			*s = '\0';
 			cn++;
-
-	client_dev = xzalloc(cn * sizeof(*client_dev));
-
-	/* parse list */
-	s = strtok(list, ",");
-	i = 0;
-	while (s != NULL) {
-		client_dev[i++] = xstrdup(s);
-		s = strtok(NULL, ",");
+		}
+		s++;
 	}
-
-	/* free copy and exit */
-	free(list);
 	*client_number = cn;
+
+	/* create vector of pointers */
+	client_dev = xzalloc(cn * sizeof(*client_dev));
+	client_dev[0] = dev_list;
+	i = 1;
+	while (i != cn) {
+		client_dev[i] = client_dev[i - 1] + strlen(client_dev[i - 1]) + 1;
+		i++;
+	}
 	return client_dev;
 }
 
 
-/* Creates listen sockets (in fds) and returns the number allocated. */
+/* Creates listen sockets (in fds) and returns numerically max fd. */
 static int init_sockets(char **client, int num_clients,
-			char *server, int *fds, int *max_socket)
+			char *server, int *fds)
 {
-	int i;
+	int i, n;
 
 	/* talk to real server on bootps */
-	fds[0] = listen_socket(/*INADDR_ANY,*/ 67, server);
-	*max_socket = fds[0];
-
-	/* array starts at 1 since server is 0 */
-	num_clients++;
+	fds[0] = listen_socket(/*INADDR_ANY,*/ SERVER_PORT, server);
+	n = fds[0];
 
 	for (i = 1; i < num_clients; i++) {
 		/* listen for clients on bootps */
-		fds[i] = listen_socket(/*NADDR_ANY,*/ 67, client[i-1]);
-		if (fds[i] > *max_socket)
-			*max_socket = fds[i];
+		fds[i] = listen_socket(/*INADDR_ANY,*/ SERVER_PORT, client[i-1]);
+		if (fds[i] > n)
+			n = fds[i];
 	}
-
-	return i;
+	return n;
 }
 
 
@@ -239,8 +224,6 @@ static void pass_back(struct dhcpMessage *p, int packet_len, int *fds)
 
 	if (item->ip.sin_addr.s_addr == htonl(INADDR_ANY))
 		item->ip.sin_addr.s_addr = htonl(INADDR_BROADCAST);
-	if (item->client > MAX_INTERFACES)
-		return;
 	res = sendto(fds[item->client], p, packet_len, 0, (struct sockaddr*)(&item->ip),
 				sizeof(item->ip));
 	if (res != packet_len) {
@@ -253,6 +236,8 @@ static void pass_back(struct dhcpMessage *p, int packet_len, int *fds)
 }
 
 static void dhcprelay_loop(int *fds, int num_sockets, int max_socket, char **clients,
+		struct sockaddr_in *server_addr, uint32_t gw_ip) ATTRIBUTE_NORETURN;
+static void dhcprelay_loop(int *fds, int num_sockets, int max_socket, char **clients,
 		struct sockaddr_in *server_addr, uint32_t gw_ip)
 {
 	struct dhcpMessage dhcp_msg;
@@ -263,7 +248,7 @@ static void dhcprelay_loop(int *fds, int num_sockets, int max_socket, char **cli
 	struct timeval tv;
 	int i;
 
-	while (!dhcprelay_stopflag) {
+	while (1) {
 		FD_ZERO(&rfds);
 		for (i = 0; i < num_sockets; i++)
 			FD_SET(fds[i], &rfds);
@@ -272,7 +257,7 @@ static void dhcprelay_loop(int *fds, int num_sockets, int max_socket, char **cli
 		if (select(max_socket + 1, &rfds, NULL, NULL, &tv) > 0) {
 			/* server */
 			if (FD_ISSET(fds[0], &rfds)) {
-				packlen = udhcp_get_packet(&dhcp_msg, fds[0]);
+				packlen = udhcp_recv_packet(&dhcp_msg, fds[0]);
 				if (packlen > 0) {
 					pass_back(&dhcp_msg, packlen, fds);
 				}
@@ -295,16 +280,17 @@ static void dhcprelay_loop(int *fds, int num_sockets, int max_socket, char **cli
 	}
 }
 
-int dhcprelay_main(int argc, char **argv);
+int dhcprelay_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int dhcprelay_main(int argc, char **argv)
 {
-	int i, num_sockets, max_socket, fds[MAX_INTERFACES];
+	int num_sockets, max_socket;
+	int *fds;
 	uint32_t gw_ip;
 	char **clients;
 	struct sockaddr_in server_addr;
 
 	server_addr.sin_family = AF_INET;
-	server_addr.sin_port = htons(67);
+	server_addr.sin_port = htons(SERVER_PORT);
 	if (argc == 4) {
 		if (!inet_aton(argv[3], &server_addr.sin_addr))
 			bb_perror_msg_and_die("didn't grok server");
@@ -313,26 +299,16 @@ int dhcprelay_main(int argc, char **argv)
 	} else {
 		bb_show_usage();
 	}
+
 	clients = get_client_devices(argv[1], &num_sockets);
-	if (!clients) return 0;
-
-	signal(SIGTERM, dhcprelay_signal_handler);
-	signal(SIGQUIT, dhcprelay_signal_handler);
-	signal(SIGINT, dhcprelay_signal_handler);
-
-	num_sockets = init_sockets(clients, num_sockets, argv[2], fds, &max_socket);
+	num_sockets++; /* for server socket at fds[0] */
+	fds = xmalloc(num_sockets * sizeof(fds[0]));
+	max_socket = init_sockets(clients, num_sockets, argv[2], fds);
 
 	if (read_interface(argv[2], NULL, &gw_ip, NULL))
 		return 1;
 
+	/* doesn't return */
 	dhcprelay_loop(fds, num_sockets, max_socket, clients, &server_addr, gw_ip);
-
-	if (ENABLE_FEATURE_CLEAN_UP) {
-		for (i = 0; i < num_sockets; i++) {
-			close(fds[i]);
-			free(clients[i]);
-		}
-	}
-
-	return 0;
+	/* return 0; - not reached */
 }

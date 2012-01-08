@@ -1,1 +1,1 @@
-#undef CONFIG_INIT
+#define CONFIG_INIT 1

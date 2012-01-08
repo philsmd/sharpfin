@@ -22,7 +22,7 @@
 #define LN_BACKUP           8
 #define LN_SUFFIX           16
 
-int ln_main(int argc, char **argv);
+int ln_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int ln_main(int argc, char **argv)
 {
 	int status = EXIT_SUCCESS;
@@ -45,7 +45,7 @@ int ln_main(int argc, char **argv)
 
 	if (argc == optind + 1) {
 		*--argv = last;
-		last = bb_get_last_path_component(xstrdup(last));
+		last = bb_get_last_path_component_strip(xstrdup(last));
 	}
 
 	do {
@@ -57,14 +57,14 @@ int ln_main(int argc, char **argv)
 		                NULL)
 		) {
 			src_name = xstrdup(*argv);
-			src = concat_path_file(src, bb_get_last_path_component(src_name));
+			src = concat_path_file(src, bb_get_last_path_component_strip(src_name));
 			free(src_name);
 			src_name = src;
 		}
 		if (!(flag & LN_SYMLINK) && stat(*argv, &statbuf)) {
 			// coreutils: "ln dangling_symlink new_hardlink" works
 			if (lstat(*argv, &statbuf) || !S_ISLNK(statbuf.st_mode)) {
-				bb_perror_msg("%s", *argv);
+				bb_simple_perror_msg(*argv);
 				status = EXIT_FAILURE;
 				free(src_name);
 				continue;
@@ -75,7 +75,7 @@ int ln_main(int argc, char **argv)
 			char *backup;
 			backup = xasprintf("%s%s", src, suffix);
 			if (rename(src, backup) < 0 && errno != ENOENT) {
-				bb_perror_msg("%s", src);
+				bb_simple_perror_msg(src);
 				status = EXIT_FAILURE;
 				free(backup);
 				continue;
@@ -97,7 +97,7 @@ int ln_main(int argc, char **argv)
 		}
 
 		if (link_func(*argv, src) != 0) {
-			bb_perror_msg("%s", src);
+			bb_simple_perror_msg(src);
 			status = EXIT_FAILURE;
 		}
 

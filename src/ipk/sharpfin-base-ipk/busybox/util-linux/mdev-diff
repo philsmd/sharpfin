@@ -1,0 +1,69 @@
+Index: mdev.c
+===================================================================
+RCS file: /reciva/proj/InternetRadio/cvs/busybox/util-linux/mdev.c,v
+retrieving revision 1.1
+retrieving revision 1.2
+diff -u -r1.1 -r1.2
+--- mdev.c	1 Jun 2007 13:03:43 -0000	1.1
++++ mdev.c	13 Sep 2007 10:15:50 -0000	1.2
+@@ -13,6 +13,8 @@
+ #include "xregex.h"
+ 
+ #define DEV_PATH	"/dev"
++#define MTDBLOCK	"mtdblock"
++#define MTD         "mtd"
+ 
+ struct mdev_globals
+ {
+@@ -170,12 +172,49 @@
+ 
+ 	umask(0);
+ 	if (!delete) {
++        char device_path[PATH_MAX];
++        const char *sub_path = NULL;
+ 		if (sscanf(temp, "%d:%d", &major, &minor) != 2) return;
+-		if (mknod(device_name, mode | type, makedev(major, minor)) && errno != EEXIST)
++
++        switch(major)
++        {
++            case 10:
++                sub_path = "misc";
++                break;
++            case 13:
++                sub_path = "input";
++                break;
++            case 31:
++                if (strncmp(MTDBLOCK, device_name, strlen(MTDBLOCK)) == 0);
++                {
++                    sub_path = MTDBLOCK;
++                    device_name += strlen(MTDBLOCK);
++                }
++                break;
++            case 90:
++                if (strncmp(MTD, device_name, strlen(MTD)) == 0);
++                {
++                    sub_path = MTD;
++                    device_name += strlen(MTD);
++                }
++                break;
++        }
++
++        if (sub_path)
++        {
++            mkdir(sub_path, 0755);
++            sprintf(device_path, "%s/%s", sub_path, device_name);
++        }
++        else
++        {
++            strcpy(device_path, device_name);
++        }
++
++		if (mknod(device_path, mode | type, makedev(major, minor)) && errno != EEXIST)
+ 			bb_perror_msg_and_die("mknod %s", device_name);
+ 
+ 		if (major == bbg.root_major && minor == bbg.root_minor)
+-			symlink(device_name, "root");
++			symlink(device_path, "root");
+ 
+ 		if (ENABLE_FEATURE_MDEV_CONF) chown(device_name, uid, gid);
+ 	}

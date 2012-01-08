@@ -1,1 +1,1 @@
-#undef CONFIG_IPTUNNEL
+#define CONFIG_IPTUNNEL 1

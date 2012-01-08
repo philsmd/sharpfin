@@ -1,1 +1,1 @@
-#undef CONFIG_IFCONFIG
+#define CONFIG_IFCONFIG 1

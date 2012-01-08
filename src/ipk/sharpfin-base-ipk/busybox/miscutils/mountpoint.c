@@ -11,7 +11,7 @@
 
 #include "libbb.h"
 
-int mountpoint_main(int argc, char **argv);
+int mountpoint_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int mountpoint_main(int argc, char **argv)
 {
 	struct stat st;
@@ -34,7 +34,7 @@ int mountpoint_main(int argc, char **argv)
 				return EXIT_SUCCESS;
 			} else {
 				if (opt & OPT_q)
-					putchar('\n');
+					bb_putchar('\n');
 				else
 					bb_error_msg("%s: not a block device", arg);
 			}
@@ -61,6 +61,6 @@ int mountpoint_main(int argc, char **argv)
 		}
 	}
 	if (!(opt & OPT_q))
-		bb_perror_msg("%s", arg);
+		bb_simple_perror_msg(arg);
 	return EXIT_FAILURE;
 }

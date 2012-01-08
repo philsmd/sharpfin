@@ -25,7 +25,7 @@ OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-/* Busyboxed by Denis Vlasenko <vda.linux@googlemail.com> */
+/* Busyboxed by Denys Vlasenko <vda.linux@googlemail.com> */
 /* Collected into one file from runit's many tiny files */
 /* TODO: review, eliminate unneeded stuff, move good stuff to libbb */
 
@@ -48,11 +48,6 @@ unsigned byte_chr(char *s,unsigned n,int c)
 		--n;
 	}
 	return t - s;
-}
-
-int coe(int fd)
-{
-	return fcntl(fd, F_SETFD, FD_CLOEXEC);
 }
 
 #ifdef UNUSED
@@ -238,19 +233,23 @@ unsigned pmatch(const char *p, const char *s, unsigned len)
 		if (!c) return !len;
 		switch (c) {
 		case '*':
-			if (!(c = *p)) return 1;
+			c = *p;
+			if (!c) return 1;
 			for (;;) {
 				if (!len) return 0;
 				if (*s == c) break;
-				++s; --len;
+				++s;
+				--len;
 			}
 			continue;
 		case '+':
-			if ((c = *p++) != *s) return 0;
+			c = *p++;
+			if (c != *s) return 0;
 			for (;;) {
 				if (!len) return 1;
 				if (*s != c) break;
-				++s; --len;
+				++s;
+				--len;
 			}
 			continue;
 			/*
@@ -265,7 +264,8 @@ unsigned pmatch(const char *p, const char *s, unsigned len)
 		default:
 			if (!len) return 0;
 			if (*s != c) return 0;
-			++s; --len;
+			++s;
+			--len;
 			continue;
 		}
 	}

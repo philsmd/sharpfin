@@ -1,1 +1,1 @@
-#undef CONFIG_OPENVT
+#define CONFIG_OPENVT 1

@@ -5,7 +5,7 @@
  * Copyright (C) 1999,2000,2001 by Lineo, inc. and Mark Whitley
  * Copyright (C) 1999,2000,2001 by Mark Whitley <markw@codepoet.org>
  * Copyright (C) 2002  Matt Kraai
- * Copyright (C) 2003 by Glenn McGrath <bug1@iinet.net.au>
+ * Copyright (C) 2003 by Glenn McGrath
  * Copyright (C) 2003,2004 by Rob Landley <rob@landley.net>
  *
  * MAINTAINER: Rob Landley <rob@landley.net>
@@ -76,7 +76,7 @@ typedef struct sed_cmd_s {
 	FILE *sw_file;          /* File (sw) command writes to, -1 for none. */
 	char *string;           /* Data string for (saicytb) commands. */
 
-	unsigned short which_match; /* (s) Which match to replace (0 for all) */
+	unsigned which_match;   /* (s) Which match to replace (0 for all) */
 
 	/* Bitfields (gcc won't group them if we don't) */
 	unsigned invert:1;      /* the '!' after the address */
@@ -157,7 +157,7 @@ static void sed_free_and_close_stuff(void)
 		sed_cmd = sed_cmd_next;
 	}
 
-	if (G.hold_space) free(G.hold_space);
+	free(G.hold_space);
 
 	while (G.current_input_file < G.input_file_count)
 		fclose(G.input_file_list[G.current_input_file++]);
@@ -173,7 +173,7 @@ static void cleanup_outname(void)
 	if (G.outname) unlink(G.outname);
 }
 
-/* strdup, replacing "\n" with '\n', and "\delimiter" with 'delimiter' */
+/* strcpy, replacing "\from" with 'to'. If to is NUL, replacing "\any" with 'any' */
 
 static void parse_escapes(char *dest, const char *string, int len, char from, char to)
 {
@@ -188,9 +188,10 @@ static void parse_escapes(char *dest, const char *string, int len, char from, ch
 			}
 			*dest++ = string[i++];
 		}
+		/* TODO: is it safe wrt a string with trailing '\\' ? */
 		*dest++ = string[i++];
 	}
-	*dest = 0;
+	*dest = '\0';
 }
 
 static char *copy_parsing_escapes(const char *string, int len)
@@ -198,6 +199,8 @@ static char *copy_parsing_escapes(const char *string, int len)
 	char *dest = xmalloc(len + 1);
 
 	parse_escapes(dest, string, len, 'n', '\n');
+	/* GNU sed also recognizes \t */
+	parse_escapes(dest, dest, strlen(dest), 't', '\t');
 	return dest;
 }
 
@@ -205,7 +208,7 @@ static char *copy_parsing_escapes(const char *string, int len)
 /*
  * index_of_next_unescaped_regexp_delim - walks left to right through a string
  * beginning at a specified index and returns the index of the next regular
- * expression delimiter (typically a forward * slash ('/')) not preceded by
+ * expression delimiter (typically a forward slash ('/')) not preceded by
  * a backslash ('\').  A negative delimiter disables square bracket checking.
  */
 static int index_of_next_unescaped_regexp_delim(int delimiter, const char *str)
@@ -298,7 +301,7 @@ static int get_address(const char *my_str, int *linenum, regex_t ** regex)
 }
 
 /* Grab a filename.  Whitespace at start is skipped, then goes to EOL. */
-static int parse_file_cmd(sed_cmd_t *sed_cmd, const char *filecmdstr, char **retval)
+static int parse_file_cmd(/*sed_cmd_t *sed_cmd,*/ const char *filecmdstr, char **retval)
 {
 	int start = 0, idx, hack = 0;
 
@@ -350,7 +353,7 @@ static int parse_subst_cmd(sed_cmd_t *sed_cmd, const char *substr)
 				/* Match 0 treated as all, multiple matches we take the last one. */
 				const char *pos = substr + idx;
 /* FIXME: error check? */
-				sed_cmd->which_match = (unsigned short)strtol(substr+idx, (char**) &pos, 10);
+				sed_cmd->which_match = (unsigned)strtol(substr+idx, (char**) &pos, 10);
 				idx = pos - substr;
 			}
 			continue;
@@ -361,7 +364,8 @@ static int parse_subst_cmd(sed_cmd_t *sed_cmd, const char *substr)
 		switch (substr[idx]) {
 		/* Replace all occurrences */
 		case 'g':
-			if (match[0] != '^') sed_cmd->which_match = 0;
+			if (match[0] != '^')
+				sed_cmd->which_match = 0;
 			break;
 		/* Print pattern space */
 		case 'p':
@@ -371,7 +375,7 @@ static int parse_subst_cmd(sed_cmd_t *sed_cmd, const char *substr)
 		case 'w':
 		{
 			char *temp;
-			idx += parse_file_cmd(sed_cmd, substr+idx, &temp);
+			idx += parse_file_cmd(/*sed_cmd,*/ substr+idx, &temp);
 			break;
 		}
 		/* Ignore case (gnu exension) */
@@ -425,13 +429,14 @@ static const char *parse_cmd_args(sed_cmd_t *sed_cmd, const char *cmdstr)
 				break;
 		}
 		sed_cmd->string = xstrdup(cmdstr);
-		parse_escapes(sed_cmd->string, sed_cmd->string, strlen(cmdstr), 0, 0);
+		/* "\anychar" -> "anychar" */
+		parse_escapes(sed_cmd->string, sed_cmd->string, strlen(cmdstr), '\0', '\0');
 		cmdstr += strlen(cmdstr);
 	/* handle file cmds: (r)ead */
 	} else if (strchr("rw", sed_cmd->cmd)) {
 		if (sed_cmd->end_line || sed_cmd->end_match)
 			bb_error_msg_and_die("command only uses one address");
-		cmdstr += parse_file_cmd(sed_cmd, cmdstr, &sed_cmd->string);
+		cmdstr += parse_file_cmd(/*sed_cmd,*/ cmdstr, &sed_cmd->string);
 		if (sed_cmd->cmd == 'w') {
 			sed_cmd->sw_file = xfopen(sed_cmd->string, "w");
 			sed_cmd->sw_last_char = '\n';
@@ -679,7 +684,8 @@ static int do_subst_command(sed_cmd_t *sed_cmd, char **line)
 		altered++;
 
 		/* if we're not doing this globally, get out now */
-		if (sed_cmd->which_match) break;
+		if (sed_cmd->which_match)
+			break;
 	} while (*oldline && (regexec(current_regex, oldline, 10, G.regmatch, 0) != REG_NOMATCH));
 
 	/* Copy rest of string into output pipeline */
@@ -859,7 +865,7 @@ static void process_files(void)
 	next_line = get_next_line(&next_gets_char);
 
 	/* go through every line in each file */
-again:
+ again:
 	substituted = 0;
 
 	/* Advance to next line.  Stop if out of lines. */
@@ -871,7 +877,7 @@ again:
 	 * the '$' address */
 	next_line = get_next_line(&next_gets_char);
 	linenum++;
-restart:
+ restart:
 	/* for every line, go through all the commands */
 	for (sed_cmd = G.sed_cmd_head.next; sed_cmd; sed_cmd = sed_cmd->next) {
 		int old_matched, matched;
@@ -1047,6 +1053,7 @@ restart:
 					pattern_space = next_line;
 					last_gets_char = next_gets_char;
 					next_line = get_next_line(&next_gets_char);
+					substituted = 0;
 					linenum++;
 					break;
 				}
@@ -1223,8 +1230,8 @@ static void add_cmd_block(char *cmdstr)
 	free(sv);
 }
 
-int sed_main(int argc, char **argv);
-int sed_main(int argc, char **argv)
+int sed_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int sed_main(int argc ATTRIBUTE_UNUSED, char **argv)
 {
 	enum {
 		OPT_in_place = 1 << 0,
@@ -1239,7 +1246,7 @@ int sed_main(int argc, char **argv)
 	if (ENABLE_FEATURE_CLEAN_UP) atexit(sed_free_and_close_stuff);
 
 	/* Lie to autoconf when it starts asking stupid questions. */
-	if (argc == 2 && !strcmp(argv[1], "--version")) {
+	if (argv[1] && !strcmp(argv[1], "--version")) {
 		puts("This is not GNU sed version 4.0");
 		return 0;
 	}
@@ -1250,7 +1257,7 @@ int sed_main(int argc, char **argv)
 	                    "nn"; /* count -n */
 	opt = getopt32(argv, "irne:f:", &opt_e, &opt_f,
 			    &G.be_quiet); /* counter for -n */
-	argc -= optind;
+	//argc -= optind;
 	argv += optind;
 	if (opt & OPT_in_place) { // -i
 		atexit(cleanup_outname);
@@ -1276,10 +1283,9 @@ int sed_main(int argc, char **argv)
 	}
 	/* if we didn't get a pattern from -e or -f, use argv[0] */
 	if (!(opt & 0x18)) {
-		if (!argc)
+		if (!*argv)
 			bb_show_usage();
 		add_cmd_block(*argv++);
-		argc--;
 	}
 	/* Flush any unfinished commands. */
 	add_cmd("");
@@ -1299,7 +1305,7 @@ int sed_main(int argc, char **argv)
 		int i;
 		FILE *file;
 
-		for (i = 0; i < argc; i++) {
+		for (i = 0; argv[i]; i++) {
 			struct stat statbuf;
 			int nonstdoutfd;
 
@@ -1334,10 +1340,9 @@ int sed_main(int argc, char **argv)
 
 			G.nonstdout = stdout;
 			/* unlink(argv[i]); */
-			// FIXME: error check / message?
-			rename(G.outname, argv[i]);
+			xrename(G.outname, argv[i]);
 			free(G.outname);
-			G.outname = 0;
+			G.outname = NULL;
 		}
 		if (G.input_file_count > G.current_input_file)
 			process_files();

@@ -1,7 +1,7 @@
 /* vi: set sw=4 ts=4: */
 /*
  *  busybox patch applet to handle the unified diff format.
- *  Copyright (C) 2003 Glenn McGrath <bug1@iinet.net.au>
+ *  Copyright (C) 2003 Glenn McGrath
  *
  *  Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
  *
@@ -71,20 +71,15 @@ static char *extract_filename(char *line, int patch_level)
 	return xstrdup(filename_start_ptr);
 }
 
-static int file_doesnt_exist(const char *filename)
-{
-	struct stat statbuf;
-	return stat(filename, &statbuf);
-}
-
-int patch_main(int argc, char **argv);
-int patch_main(int argc, char **argv)
+int patch_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int patch_main(int argc ATTRIBUTE_UNUSED, char **argv)
 {
 	int patch_level = -1;
 	char *patch_line;
 	int ret;
 	FILE *patch_file = NULL;
-
+	struct stat saved_stat;
+	
 	{
 		char *p, *i;
 		ret = getopt32(argv, "p:i:", &p, &i);
@@ -134,8 +129,9 @@ int patch_main(int argc, char **argv)
 		}
 		new_filename = extract_filename(patch_line, patch_level);
 		free(patch_line);
-
-		if (file_doesnt_exist(new_filename)) {
+		
+		/* Get access rights from the file to be patched, -1 file does not exist */
+		if (stat(new_filename, &saved_stat)) {
 			char *line_ptr;
 			/* Create leading directories */
 			line_ptr = strrchr(new_filename, '/');
@@ -150,14 +146,12 @@ int patch_main(int argc, char **argv)
 			backup_filename = xmalloc(strlen(new_filename) + 6);
 			strcpy(backup_filename, new_filename);
 			strcat(backup_filename, ".orig");
-			if (rename(new_filename, backup_filename) == -1) {
-				bb_perror_msg_and_die("cannot create file %s",
-						backup_filename);
-			}
+			xrename(new_filename, backup_filename);
 			dst_stream = xfopen(new_filename, "w");
+			fchmod(fileno(dst_stream), saved_stat.st_mode);
 		}
 
-		if ((backup_filename == NULL) || file_doesnt_exist(original_filename)) {
+		if ((backup_filename == NULL) || stat(original_filename, &saved_stat)) {
 			src_stream = NULL;
 		} else {
 			if (strcmp(original_filename, new_filename) == 0) {

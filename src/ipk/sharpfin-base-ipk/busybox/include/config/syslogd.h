@@ -1,1 +1,1 @@
-#undef CONFIG_SYSLOGD
+#define CONFIG_SYSLOGD 1

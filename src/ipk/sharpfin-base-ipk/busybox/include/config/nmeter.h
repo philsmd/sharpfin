@@ -1,1 +1,1 @@
-#undef CONFIG_NMETER
+#define CONFIG_NMETER 1

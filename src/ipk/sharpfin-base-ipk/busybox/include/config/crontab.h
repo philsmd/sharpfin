@@ -1,1 +1,1 @@
-#undef CONFIG_CRONTAB
+#define CONFIG_CRONTAB 1

@@ -1,1 +1,1 @@
-#undef CONFIG_SED
+#define CONFIG_SED 1

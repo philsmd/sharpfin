@@ -21,8 +21,7 @@ static blkid_tag blkid_new_tag(void)
 {
 	blkid_tag tag;
 
-	if (!(tag = (blkid_tag) calloc(1, sizeof(struct blkid_struct_tag))))
-		return NULL;
+	tag = xzalloc(sizeof(struct blkid_struct_tag));
 
 	INIT_LIST_HEAD(&tag->bit_tags);
 	INIT_LIST_HEAD(&tag->bit_names);
@@ -364,7 +363,7 @@ void usage(char *prog)
 int main(int argc, char **argv)
 {
 	blkid_tag_iterate	iter;
-	blkid_cache 		cache = NULL;
+	blkid_cache		cache = NULL;
 	blkid_dev		dev;
 	int			c, ret, found;
 	int			flags = BLKID_DEV_FIND;

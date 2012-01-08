@@ -11,7 +11,7 @@
 enum {
 	OPT_STDOUT = 0x1,
 	OPT_FORCE = 0x2,
-/* gunzip only: */
+/* gunzip and bunzip2 only: */
 	OPT_VERBOSE = 0x4,
 	OPT_DECOMPRESS = 0x8,
 	OPT_TEST = 0x10,
@@ -49,7 +49,7 @@ int bbunpack(char **argv,
 		/* Open src */
 		if (filename) {
 			if (stat(filename, &stat_buf) != 0) {
-				bb_perror_msg("%s", filename);
+				bb_simple_perror_msg(filename);
  err:
 				exitcode = 1;
 				goto free_name;
@@ -74,7 +74,7 @@ int bbunpack(char **argv,
 				goto err;
 			}
 			/* O_EXCL: "real" bunzip2 doesn't overwrite files */
-			/* GNU gunzip goes not bail out, but goes to next file */
+			/* GNU gunzip does not bail out, but goes to next file */
 			if (open_to_or_warn(STDOUT_FILENO, new_name, O_WRONLY | O_CREAT | O_EXCL,
 					stat_buf.st_mode))
 				goto err;
@@ -138,7 +138,7 @@ char* make_new_name_generic(char *filename, const char *expected_ext)
 
 
 /*
- *  Modified for busybox by Glenn McGrath <bug1@iinet.net.au>
+ *  Modified for busybox by Glenn McGrath
  *  Added support output to stdout by Thomas Lundquist <thomasez@zelow.no>
  *
  *  Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
@@ -158,10 +158,10 @@ USE_DESKTOP(long long) int unpack_bunzip2(void)
 	return unpack_bz2_stream(STDIN_FILENO, STDOUT_FILENO);
 }
 
-int bunzip2_main(int argc, char **argv);
-int bunzip2_main(int argc, char **argv)
+int bunzip2_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int bunzip2_main(int argc ATTRIBUTE_UNUSED, char **argv)
 {
-	getopt32(argv, "cf");
+	getopt32(argv, "cfvdt");
 	argv += optind;
 	if (applet_name[2] == 'c')
 		option_mask32 |= OPT_STDOUT;
@@ -185,7 +185,7 @@ int bunzip2_main(int argc, char **argv)
  * handling.
  *
  * General cleanup to better adhere to the style guide and make use of standard
- * busybox functions by Glenn McGrath <bug1@iinet.net.au>
+ * busybox functions by Glenn McGrath
  *
  * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  *
@@ -241,7 +241,6 @@ USE_DESKTOP(long long) int unpack_gunzip(void)
 		if (ENABLE_FEATURE_GUNZIP_UNCOMPRESS && magic2 == 0x9d) {
 			status = uncompress(STDIN_FILENO, STDOUT_FILENO);
 		} else if (magic2 == 0x8b) {
-			check_header_gzip_or_die(STDIN_FILENO);
 			status = unpack_gz_stream(STDIN_FILENO, STDOUT_FILENO);
 		} else {
 			goto bad_magic;
@@ -257,8 +256,8 @@ USE_DESKTOP(long long) int unpack_gunzip(void)
 	return status;
 }
 
-int gunzip_main(int argc, char **argv);
-int gunzip_main(int argc, char **argv)
+int gunzip_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int gunzip_main(int argc ATTRIBUTE_UNUSED, char **argv)
 {
 	getopt32(argv, "cfvdt");
 	argv += optind;
@@ -295,8 +294,8 @@ USE_DESKTOP(long long) int unpack_unlzma(void)
 	return unpack_lzma_stream(STDIN_FILENO, STDOUT_FILENO);
 }
 
-int unlzma_main(int argc, char **argv);
-int unlzma_main(int argc, char **argv)
+int unlzma_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int unlzma_main(int argc ATTRIBUTE_UNUSED, char **argv)
 {
 	getopt32(argv, "cf");
 	argv += optind;
@@ -337,8 +336,8 @@ USE_DESKTOP(long long) int unpack_uncompress(void)
 	return status;
 }
 
-int uncompress_main(int argc, char **argv);
-int uncompress_main(int argc, char **argv)
+int uncompress_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int uncompress_main(int argc ATTRIBUTE_UNUSED, char **argv)
 {
 	getopt32(argv, "cf");
 	argv += optind;

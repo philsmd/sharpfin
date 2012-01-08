@@ -1,5 +1,6 @@
 /* vi: set sw=4 ts=4: */
 /* dhcpd.h */
+
 #ifndef _DHCPD_H
 #define _DHCPD_H
 
@@ -9,7 +10,7 @@
 
 /* the period of time the client is allowed to use that address */
 #define LEASE_TIME              (60*60*24*10) /* 10 days of seconds */
-#define LEASES_FILE		"/var/lib/misc/udhcpd.leases"
+#define LEASES_FILE		CONFIG_DHCPD_LEASES_FILE
 
 /* where to find the DHCP server configuration file */
 #define DHCPD_CONF_FILE         "/etc/udhcpd.conf"
@@ -27,6 +28,9 @@ struct static_lease {
 
 struct server_config_t {
 	uint32_t server;                /* Our IP, in network order */
+#if ENABLE_FEATURE_UDHCP_PORT
+	uint16_t port;
+#endif
 	/* start,end are in host order: we need to compare start <= ip <= end */
 	uint32_t start_ip;              /* Start address of leases, in host order */
 	uint32_t end_ip;                /* End of leases, in host order */
@@ -54,7 +58,15 @@ struct server_config_t {
 	struct static_lease *static_leases; /* List of ip/mac pairs to assign static leases */
 };
 
-extern struct server_config_t server_config;
+#define server_config (*(struct server_config_t*)&bb_common_bufsiz1)
+/* client_config sits in 2nd half of bb_common_bufsiz1 */
+
+#if ENABLE_FEATURE_UDHCP_PORT
+#define SERVER_PORT (server_config.port)
+#else
+#define SERVER_PORT 67
+#endif
+
 extern struct dhcpOfferedAddr *leases;
 
 
@@ -96,10 +108,10 @@ int send_inform(struct dhcpMessage *oldpacket);
 
 /*** files.h ***/
 
-int read_config(const char *file);
+void read_config(const char *file);
 void write_leases(void);
 void read_leases(const char *file);
-struct option_set *find_option(struct option_set *opt_list, char code);
+struct option_set *find_option(struct option_set *opt_list, uint8_t code);
 
 
 #endif

@@ -1,1 +1,1 @@
-#undef CONFIG_RMDIR
+#define CONFIG_RMDIR 1

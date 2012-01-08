@@ -24,7 +24,7 @@
  * This is needed to avoid collision with kill -9 ... syntax
  */
 
-int kill_main(int argc, char **argv);
+int kill_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int kill_main(int argc, char **argv)
 {
 	char *arg;
@@ -58,33 +58,30 @@ int kill_main(int argc, char **argv)
 	if (arg[1] == 'l' && arg[2] == '\0') {
 		if (argc == 1) {
 			/* Print the whole signal list */
-			for (signo = 1; signo < 32; signo++) {
-				const char *name = get_signame(signo);
-				if (!isdigit(name[0]))
-					puts(name);
-			}
-		} else { /* -l <sig list> */
-			while ((arg = *++argv)) {
-				if (isdigit(arg[0])) {
-					signo = bb_strtou(arg, NULL, 10);
-					if (errno) {
-						bb_error_msg("unknown signal '%s'", arg);
-						return EXIT_FAILURE;
-					}
-					/* Exitcodes >= 0x80 are to be treated
-					 * as "killed by signal (exitcode & 0x7f)" */
-					puts(get_signame(signo & 0x7f));
-					/* TODO: 'bad' signal# - coreutils says:
-					 * kill: 127: invalid signal
-					 * we just print "127" instead */
-				} else {
-					signo = get_signum(arg);
-					if (signo < 0) {
-						bb_error_msg("unknown signal '%s'", arg);
-						return EXIT_FAILURE;
-					}
-					printf("%d\n", signo);
+			print_signames();
+			return 0;
+		}
+		/* -l <sig list> */
+		while ((arg = *++argv)) {
+			if (isdigit(arg[0])) {
+				signo = bb_strtou(arg, NULL, 10);
+				if (errno) {
+					bb_error_msg("unknown signal '%s'", arg);
+					return EXIT_FAILURE;
 				}
+				/* Exitcodes >= 0x80 are to be treated
+				 * as "killed by signal (exitcode & 0x7f)" */
+				puts(get_signame(signo & 0x7f));
+				/* TODO: 'bad' signal# - coreutils says:
+				 * kill: 127: invalid signal
+				 * we just print "127" instead */
+			} else {
+				signo = get_signum(arg);
+				if (signo < 0) {
+					bb_error_msg("unknown signal '%s'", arg);
+					return EXIT_FAILURE;
+				}
+				printf("%d\n", signo);
 			}
 		}
 		/* If they specified -l, we are all done */
@@ -132,7 +129,7 @@ do_it_now:
 
 	/* Pid or name is required for kill/killall */
 	if (argc < 1) {
-		puts("You need to specify whom to kill");
+		bb_error_msg("you need to specify whom to kill");
 		return EXIT_FAILURE;
 	}
 

@@ -1,0 +1,19 @@
+Package: busybox
+Version: CURRENT_VERSION
+Depends: libc6, update-rc.d
+Priority: required
+Provides: ar, ash, debianutils, fileutils, find, getty, grep, gzip, hostname, hwclock, iputils-ping, login, md5sum, more, mount, netcat, net-tools, netkit-ping, procps, sed, shellutils, syslog, tar, textutils, vi, wget, iproute
+Conflicts: ar, ash, debianutils, fileutils, find, getty, grep, gzip, hostname, hwclock, iputils-ping, login, md5sum, more, mount, netcat, net-tools, netkit-ping, procps, sed, shellutils, syslog, tar, textutils, wget, iproute
+Section: base
+Architecture: reciva
+Maintainer: Phil Blundell <pb@debian.org>
+Source: http://handhelds.org/
+Description: BusyBox 
+ BusyBox combines tiny versions of many common UNIX utilities into a single
+ small executable. It provides minimalist replacements for most of the
+ utilities you usually find in GNU fileutils, shellutils, etc. The utilities
+ in BusyBox generally have fewer options than their full-featured GNU
+ cousins; however, the options that are included provide the expected
+ functionality and behave very much like their GNU counterparts. BusyBox
+ provides a fairly complete POSIX environment for any small or embedded
+ system.

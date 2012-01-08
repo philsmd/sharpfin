@@ -1,1 +1,1 @@
-#undef CONFIG_HEAD
+#define CONFIG_HEAD 1

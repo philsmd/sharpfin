@@ -1,1 +1,1 @@
-#undef CONFIG_ADJTIMEX
+#define CONFIG_ADJTIMEX 1

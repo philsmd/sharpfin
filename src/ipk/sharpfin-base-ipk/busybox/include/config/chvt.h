@@ -1,1 +1,1 @@
-#undef CONFIG_CHVT
+#define CONFIG_CHVT 1

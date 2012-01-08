@@ -1,1 +1,1 @@
-#undef CONFIG_SULOGIN
+#define CONFIG_SULOGIN 1

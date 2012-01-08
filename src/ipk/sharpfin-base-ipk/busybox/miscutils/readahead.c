@@ -12,21 +12,26 @@
 
 #include "libbb.h"
 
-int readahead_main(int argc, char **argv);
+int readahead_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int readahead_main(int argc, char **argv)
 {
-	FILE *f;
 	int retval = EXIT_SUCCESS;
 
 	if (argc == 1) bb_show_usage();
 
 	while (*++argv) {
-		if ((f = fopen_or_warn(*argv, "r")) != NULL) {
-			int r, fd=fileno(f);
+		int fd = open_or_warn(*argv, O_RDONLY);
+		if (fd >= 0) {
+			off_t len;
+			int r;
 
-			r = readahead(fd, 0, fdlength(fd));
-			fclose(f);
-			if (r >= 0) continue;
+			/* fdlength was reported to be unreliable - use seek */
+			len = xlseek(fd, 0, SEEK_END);
+			xlseek(fd, 0, SEEK_SET);
+			r = readahead(fd, 0, len);
+			close(fd);
+			if (r >= 0)
+				continue;
 		}
 		retval = EXIT_FAILURE;
 	}

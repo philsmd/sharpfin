@@ -1,1 +1,1 @@
-#define CONFIG_WERROR 1
+#undef CONFIG_WERROR

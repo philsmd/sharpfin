@@ -1,1 +1,1 @@
-#undef CONFIG_FDFLUSH
+#define CONFIG_FDFLUSH 1

@@ -27,8 +27,8 @@ static FILE *xgetoptfile_uniq_s(char **argv, int read0write2)
 	return (read0write2) ? stdout : stdin;
 }
 
-int uniq_main(int argc, char **argv);
-int uniq_main(int argc, char **argv)
+int uniq_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int uniq_main(int argc ATTRIBUTE_UNUSED, char **argv)
 {
 	FILE *in, *out;
 	unsigned long dups, skip_fields, skip_chars, i;

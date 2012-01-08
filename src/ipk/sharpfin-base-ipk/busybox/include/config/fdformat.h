@@ -1,1 +1,1 @@
-#undef CONFIG_FDFORMAT
+#define CONFIG_FDFORMAT 1

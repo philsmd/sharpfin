@@ -8,14 +8,14 @@
  */
 
 #include <getopt.h>
-
 #include "libbb.h"
 
-int readlink_main(int argc, char **argv);
-int readlink_main(int argc, char **argv)
+int readlink_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int readlink_main(int argc ATTRIBUTE_UNUSED, char **argv)
 {
 	char *buf;
 	char *fname;
+	char pathbuf[PATH_MAX];
 
 	USE_FEATURE_READLINK_FOLLOW(
 		unsigned opt;
@@ -34,7 +34,7 @@ int readlink_main(int argc, char **argv)
 	logmode = LOGMODE_NONE;
 
 	if (opt) {
-		buf = realpath(fname, bb_common_bufsiz1);
+		buf = realpath(fname, pathbuf);
 	} else {
 		buf = xmalloc_readlink_or_warn(fname);
 	}

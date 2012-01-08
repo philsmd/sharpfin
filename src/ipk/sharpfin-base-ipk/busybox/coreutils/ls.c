@@ -171,7 +171,7 @@ static struct dnode *my_stat(const char *fullname, const char *name, int force_f
 		}
 #endif
 		if (stat(fullname, &dstat)) {
-			bb_perror_msg("%s", fullname);
+			bb_simple_perror_msg(fullname);
 			status = EXIT_FAILURE;
 			return 0;
 		}
@@ -182,7 +182,7 @@ static struct dnode *my_stat(const char *fullname, const char *name, int force_f
 		}
 #endif
 		if (lstat(fullname, &dstat)) {
-			bb_perror_msg("%s", fullname);
+			bb_simple_perror_msg(fullname);
 			status = EXIT_FAILURE;
 			return 0;
 		}
@@ -451,7 +451,7 @@ static void showdirs(struct dnode **dn, int ndirs, int first)
 	for (i = 0; i < ndirs; i++) {
 		if (all_fmt & (DISP_DIRNAME | DISP_RECURSIVE)) {
 			if (!first)
-				puts("");
+				bb_putchar('\n');
 			first = 0;
 			printf("%s:\n", dn[i]->fullname);
 		}
@@ -783,7 +783,7 @@ static const unsigned opt_flags[] = {
 /* THIS IS A "SAFE" APPLET, main() MAY BE CALLED INTERNALLY FROM SHELL */
 /* BE CAREFUL! */
 
-int ls_main(int argc, char **argv);
+int ls_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int ls_main(int argc, char **argv)
 {
 	struct dnode **dnd;
@@ -799,8 +799,6 @@ int ls_main(int argc, char **argv)
 	int ac;
 	int i;
 	char **av;
-	USE_FEATURE_AUTOWIDTH(char *tabstops_str = NULL;)
-	USE_FEATURE_AUTOWIDTH(char *terminal_width_str = NULL;)
 	USE_FEATURE_LS_COLOR(char *color_opt;)
 
 #if ENABLE_FEATURE_LS_TIMESTAMPS
@@ -820,12 +818,9 @@ int ls_main(int argc, char **argv)
 	/* process options */
 	USE_FEATURE_LS_COLOR(applet_long_options = ls_color_opt;)
 #if ENABLE_FEATURE_AUTOWIDTH
-	opt = getopt32(argv, ls_options, &tabstops_str, &terminal_width_str
+	opt_complementary = "T+:w+"; /* -T N, -w N */
+	opt = getopt32(argv, ls_options, &tabstops, &terminal_width
 				USE_FEATURE_LS_COLOR(, &color_opt));
-	if (tabstops_str)
-		tabstops = xatou(tabstops_str);
-	if (terminal_width_str)
-		terminal_width = xatou(terminal_width_str);
 #else
 	opt = getopt32(argv, ls_options USE_FEATURE_LS_COLOR(, &color_opt));
 #endif

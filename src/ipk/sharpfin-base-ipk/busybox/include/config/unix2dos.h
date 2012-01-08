@@ -1,1 +1,1 @@
-#undef CONFIG_UNIX2DOS
+#define CONFIG_UNIX2DOS 1

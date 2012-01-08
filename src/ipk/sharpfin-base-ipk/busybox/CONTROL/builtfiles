@@ -1,0 +1,4 @@
+CONTROL/control CONTROL/control
+reciva/default.script usr/share/udhcpc/default.script
+examples/zcip.script usr/share/zcip/zcip.script
+reciva/mdev.conf etc/mdev.conf

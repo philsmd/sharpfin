@@ -91,7 +91,6 @@ static int print_route(struct sockaddr_nl *who ATTRIBUTE_UNUSED,
 	int host_len = -1;
 	SPRINT_BUF(b1);
 
-
 	if (n->nlmsg_type != RTM_NEWROUTE && n->nlmsg_type != RTM_DELROUTE) {
 		fprintf(stderr, "Not a route: %08x %08x %08x\n",
 			n->nlmsg_len, n->nlmsg_type, n->nlmsg_flags);
@@ -111,11 +110,11 @@ static int print_route(struct sockaddr_nl *who ATTRIBUTE_UNUSED,
 	if (r->rtm_family == AF_INET6) {
 		if (filter.tb) {
 			if (filter.tb < 0) {
-				if (!(r->rtm_flags&RTM_F_CLONED)) {
+				if (!(r->rtm_flags & RTM_F_CLONED)) {
 					return 0;
 				}
 			} else {
-				if (r->rtm_flags&RTM_F_CLONED) {
+				if (r->rtm_flags & RTM_F_CLONED) {
 					return 0;
 				}
 				if (filter.tb == RT_TABLE_LOCAL) {
@@ -292,7 +291,7 @@ static int print_route(struct sockaddr_nl *who ATTRIBUTE_UNUSED,
 }
 
 /* Return value becomes exitcode. It's okay to not return at all */
-static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
+static int iproute_modify(int cmd, unsigned flags, char **argv)
 {
 	static const char keywords[] ALIGN1 =
 		"src\0""via\0""mtu\0""lock\0""protocol\0"USE_FEATURE_IP_RULE("table\0")
@@ -344,7 +343,7 @@ USE_FEATURE_IP_RULE(ARG_table,)
 	mxrta->rta_type = RTA_METRICS;
 	mxrta->rta_len = RTA_LENGTH(0);
 
-	while (argc > 0) {
+	while (*argv) {
 		arg = index_in_substrings(keywords, *argv);
 		if (arg == ARG_src) {
 			inet_prefix addr;
@@ -366,7 +365,7 @@ USE_FEATURE_IP_RULE(ARG_table,)
 			unsigned mtu;
 			NEXT_ARG();
 			if (index_in_strings(keywords, *argv) == PARM_lock) {
-				mxlock |= (1<<RTAX_MTU);
+				mxlock |= (1 << RTAX_MTU);
 				NEXT_ARG();
 			}
 			if (get_unsigned(&mtu, *argv, 0))
@@ -398,7 +397,7 @@ USE_FEATURE_IP_RULE(ARG_table,)
 				NEXT_ARG();
 			}
 			if ((**argv < '0' || **argv > '9')
-				&& rtnl_rtntype_a2n(&type, *argv) == 0) {
+			 && rtnl_rtntype_a2n(&type, *argv) == 0) {
 				NEXT_ARG();
 				req.r.rtm_type = type;
 				ok |= type_ok;
@@ -417,7 +416,7 @@ USE_FEATURE_IP_RULE(ARG_table,)
 				addattr_l(&req.n, sizeof(req), RTA_DST, &dst.data, dst.bytelen);
 			}
 		}
-		argc--; argv++;
+		argv++;
 	}
 
 	xrtnl_open(&rth);
@@ -511,98 +510,112 @@ static void iproute_reset_filter(void)
 }
 
 /* Return value becomes exitcode. It's okay to not return at all */
-static int iproute_list_or_flush(int argc, char **argv, int flush)
+static int iproute_list_or_flush(char **argv, int flush)
 {
 	int do_ipv6 = preferred_family;
 	struct rtnl_handle rth;
 	char *id = NULL;
 	char *od = NULL;
 	static const char keywords[] ALIGN1 =
-		"protocol\0""all\0""dev\0""oif\0""iif\0""via\0""table\0""cache\0" /*all*/
-		"from\0""root\0""match\0""exact\0""to\0"/*root match exact*/;
+		/* "ip route list/flush" parameters: */
+		"protocol\0" "dev\0"   "oif\0"   "iif\0"
+		"via\0"      "table\0" "cache\0"
+		"from\0"     "to\0"
+		/* and possible further keywords */
+		"all\0"
+		"root\0"
+		"match\0"
+		"exact\0"
+		"main\0"
+		;
 	enum {
-		ARG_proto, PARM_all,
-		ARG_dev,
-		ARG_oif,
-		ARG_iif,
-		ARG_via,
-		ARG_table, PARM_cache, /*PARM_all,*/
-		ARG_from, PARM_root, PARM_match, PARM_exact,
-		ARG_to  /*PARM_root, PARM_match, PARM_exact*/
+		KW_proto, KW_dev,   KW_oif,  KW_iif,
+		KW_via,   KW_table, KW_cache,
+		KW_from,  KW_to,
+		/* */
+		KW_all,
+		KW_root,
+		KW_match,
+		KW_exact,
+		KW_main,
 	};
 	int arg, parm;
+
 	iproute_reset_filter();
 	filter.tb = RT_TABLE_MAIN;
 
-	if (flush && argc <= 0)
+	if (flush && !*argv)
 		bb_error_msg_and_die(bb_msg_requires_arg, "\"ip route flush\"");
 
-	while (argc > 0) {
+	while (*argv) {
 		arg = index_in_substrings(keywords, *argv);
-		if (arg == ARG_proto) {
+		if (arg == KW_proto) {
 			uint32_t prot = 0;
 			NEXT_ARG();
 			filter.protocolmask = -1;
 			if (rtnl_rtprot_a2n(&prot, *argv)) {
-				if (index_in_strings(keywords, *argv) != PARM_all)
+				if (index_in_strings(keywords, *argv) != KW_all)
 					invarg(*argv, "protocol");
 				prot = 0;
 				filter.protocolmask = 0;
 			}
 			filter.protocol = prot;
-		} else if (arg == ARG_dev || arg == ARG_oif) {
+		} else if (arg == KW_dev || arg == KW_oif) {
 			NEXT_ARG();
 			od = *argv;
-		} else if (arg == ARG_iif) {
+		} else if (arg == KW_iif) {
 			NEXT_ARG();
 			id = *argv;
-		} else if (arg == ARG_via) {
+		} else if (arg == KW_via) {
 			NEXT_ARG();
 			get_prefix(&filter.rvia, *argv, do_ipv6);
-		} else if (arg == ARG_table) {
+		} else if (arg == KW_table) { /* table all/cache/main */
 			NEXT_ARG();
 			parm = index_in_substrings(keywords, *argv);
-			if (parm == PARM_cache)
+			if (parm == KW_cache)
 				filter.tb = -1;
-			else if (parm == PARM_all)
+			else if (parm == KW_all)
 				filter.tb = 0;
-			else
+			else if (parm != KW_main)
 				invarg(*argv, "table");
-		} else if (arg == ARG_from) {
+		} else if (arg == KW_cache) {
+			/* The command 'ip route flush cache' is used by OpenSWAN.
+			 * Assuming it's a synonym for 'ip route flush table cache' */
+			filter.tb = -1;
+		} else if (arg == KW_from) {
 			NEXT_ARG();
 			parm = index_in_substrings(keywords, *argv);
-			if (parm == PARM_root) {
+			if (parm == KW_root) {
 				NEXT_ARG();
 				get_prefix(&filter.rsrc, *argv, do_ipv6);
-			} else if (parm == PARM_match) {
+			} else if (parm == KW_match) {
 				NEXT_ARG();
 				get_prefix(&filter.msrc, *argv, do_ipv6);
 			} else {
-				if (parm == PARM_exact)
+				if (parm == KW_exact)
 					NEXT_ARG();
 				get_prefix(&filter.msrc, *argv, do_ipv6);
 				filter.rsrc = filter.msrc;
 			}
-		} else {
-			/* parm = arg; // would be more plausible, we reuse arg here */
-			if (arg == ARG_to) {
+		} else { /* "to" is the default parameter */
+			if (arg == KW_to) {
 				NEXT_ARG();
 				arg = index_in_substrings(keywords, *argv);
 			}
-			if (arg == PARM_root) {
+			/* parm = arg; - would be more plausible, but we reuse 'arg' here */
+			if (arg == KW_root) {
 				NEXT_ARG();
 				get_prefix(&filter.rdst, *argv, do_ipv6);
-			} else if (arg == PARM_match) {
+			} else if (arg == KW_match) {
 				NEXT_ARG();
 				get_prefix(&filter.mdst, *argv, do_ipv6);
-			} else {
-				if (arg == PARM_exact)
+			} else { /* "to exact" is the default */
+				if (arg == KW_exact)
 					NEXT_ARG();
 				get_prefix(&filter.mdst, *argv, do_ipv6);
 				filter.rdst = filter.mdst;
 			}
 		}
-		argc--;
 		argv++;
 	}
 
@@ -611,7 +624,6 @@ static int iproute_list_or_flush(int argc, char **argv, int flush)
 	}
 
 	xrtnl_open(&rth);
-
 	ll_init_map(&rth);
 
 	if (id || od)  {
@@ -632,7 +644,7 @@ static int iproute_list_or_flush(int argc, char **argv, int flush)
 	if (flush) {
 		char flushb[4096-512];
 
-		if (filter.tb == -1) {
+		if (filter.tb == -1) { /* "flush table cache" */
 			if (do_ipv6 != AF_INET6)
 				iproute_flush_cache();
 			if (do_ipv6 == AF_INET)
@@ -667,7 +679,7 @@ static int iproute_list_or_flush(int argc, char **argv, int flush)
 
 
 /* Return value becomes exitcode. It's okay to not return at all */
-static int iproute_get(int argc, char **argv)
+static int iproute_get(char **argv)
 {
 	struct rtnl_handle rth;
 	struct {
@@ -698,7 +710,7 @@ static int iproute_get(int argc, char **argv)
 	req.r.rtm_dst_len = 0;
 	req.r.rtm_tos = 0;
 
-	while (argc > 0) {
+	while (*argv) {
 		switch (index_in_strings(options, *argv)) {
 			case 0: /* from */
 			{
@@ -744,7 +756,7 @@ static int iproute_get(int argc, char **argv)
 				}
 				req.r.rtm_dst_len = addr.bitlen;
 			}
-			argc--; argv++;
+			argv++;
 		}
 	}
 
@@ -822,21 +834,23 @@ static int iproute_get(int argc, char **argv)
 }
 
 /* Return value becomes exitcode. It's okay to not return at all */
-int do_iproute(int argc, char **argv)
+int do_iproute(char **argv)
 {
 	static const char ip_route_commands[] ALIGN1 =
 	/*0-3*/	"add\0""append\0""change\0""chg\0"
 	/*4-7*/	"delete\0""get\0""list\0""show\0"
 	/*8..*/	"prepend\0""replace\0""test\0""flush\0";
-	int command_num = 6;
+	int command_num;
 	unsigned flags = 0;
 	int cmd = RTM_NEWROUTE;
 
+	if (!*argv)
+		return iproute_list_or_flush(argv, 0);
+
 	/* "Standard" 'ip r a' treats 'a' as 'add', not 'append' */
 	/* It probably means that it is using "first match" rule */
-	if (*argv) {
-		command_num = index_in_substrings(ip_route_commands, *argv);
-	}
+	command_num = index_in_substrings(ip_route_commands, *argv);
+
 	switch (command_num) {
 		case 0: /* add */
 			flags = NLM_F_CREATE|NLM_F_EXCL;
@@ -852,21 +866,24 @@ int do_iproute(int argc, char **argv)
 			cmd = RTM_DELROUTE;
 			break;
 		case 5: /* get */
-			return iproute_get(argc-1, argv+1);
+			return iproute_get(argv+1);
 		case 6: /* list */
 		case 7: /* show */
-			return iproute_list_or_flush(argc-1, argv+1, 0);
+			return iproute_list_or_flush(argv+1, 0);
 		case 8: /* prepend */
 			flags = NLM_F_CREATE;
+			break;
 		case 9: /* replace */
 			flags = NLM_F_CREATE|NLM_F_REPLACE;
+			break;
 		case 10: /* test */
 			flags = NLM_F_EXCL;
+			break;
 		case 11: /* flush */
-			return iproute_list_or_flush(argc-1, argv+1, 1);
+			return iproute_list_or_flush(argv+1, 1);
 		default:
 			bb_error_msg_and_die("unknown command %s", *argv);
 	}
 
-	return iproute_modify(cmd, flags, argc-1, argv+1);
+	return iproute_modify(cmd, flags, argv+1);
 }

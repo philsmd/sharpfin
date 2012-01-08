@@ -16,7 +16,7 @@
  */
 
 #include <paths.h>
-#include "busybox.h" /* for struct bb_applet */
+#include "busybox.h" /* uses applet tables */
 
 /* This does a fork/exec in one call, using vfork().  Returns PID of new child,
  * -1 for failure.  Runs argv[0], searching path if that has no / in it. */
@@ -62,8 +62,23 @@ pid_t xspawn(char **argv)
 {
 	pid_t pid = spawn(argv);
 	if (pid < 0)
-		bb_perror_msg_and_die("%s", *argv);
+		bb_simple_perror_msg_and_die(*argv);
 	return pid;
+}
+
+int safe_waitpid(int pid, int *wstat, int options)
+{
+	int r;
+
+	do
+		r = waitpid(pid, wstat, options);
+	while ((r == -1) && (errno == EINTR));
+	return r;
+}
+
+int wait_any_nohang(int *wstat)
+{
+	return safe_waitpid(-1, wstat, WNOHANG);
 }
 
 // Wait for the specified child PID to exit, returning child's error return.
@@ -76,7 +91,7 @@ int wait4pid(int pid)
 		/* we expect errno to be already set from failed [v]fork/exec */
 		return -1;
 	}
-	if (waitpid(pid, &status, 0) == -1)
+	if (safe_waitpid(pid, &status, 0) == -1)
 		return -1;
 	if (WIFEXITED(status))
 		return WEXITSTATUS(status);
@@ -85,26 +100,11 @@ int wait4pid(int pid)
 	return 0;
 }
 
-int wait_nohang(int *wstat)
-{
-	return waitpid(-1, wstat, WNOHANG);
-}
-
-int wait_pid(int *wstat, int pid)
-{
-	int r;
-
-	do
-		r = waitpid(pid, wstat, 0);
-	while ((r == -1) && (errno == EINTR));
-	return r;
-}
-
 #if ENABLE_FEATURE_PREFER_APPLETS
 void save_nofork_data(struct nofork_save_area *save)
 {
 	memcpy(&save->die_jmp, &die_jmp, sizeof(die_jmp));
-	save->current_applet = current_applet;
+	save->applet_name = applet_name;
 	save->xfunc_error_retval = xfunc_error_retval;
 	save->option_mask32 = option_mask32;
 	save->die_sleep = die_sleep;
@@ -114,26 +114,25 @@ void save_nofork_data(struct nofork_save_area *save)
 void restore_nofork_data(struct nofork_save_area *save)
 {
 	memcpy(&die_jmp, &save->die_jmp, sizeof(die_jmp));
-	current_applet = save->current_applet;
+	applet_name = save->applet_name;
 	xfunc_error_retval = save->xfunc_error_retval;
 	option_mask32 = save->option_mask32;
 	die_sleep = save->die_sleep;
-
-	applet_name = current_applet->name;
 }
 
-int run_nofork_applet_prime(struct nofork_save_area *old, const struct bb_applet *a, char **argv)
+int run_nofork_applet_prime(struct nofork_save_area *old, int applet_no, char **argv)
 {
 	int rc, argc;
 
-	current_applet = a;
-	applet_name = a->name;
+	applet_name = APPLET_NAME(applet_no);
 	xfunc_error_retval = EXIT_FAILURE;
-	/*option_mask32 = 0; - not needed */
-	/* special flag for xfunc_die(). If xfunc will "die"
+
+	/* Special flag for xfunc_die(). If xfunc will "die"
 	 * in NOFORK applet, xfunc_die() sees negative
 	 * die_sleep and longjmp here instead. */
 	die_sleep = -1;
+
+	/* option_mask32 = 0; - not needed */
 
 	argc = 1;
 	while (argv[argc])
@@ -146,7 +145,7 @@ int run_nofork_applet_prime(struct nofork_save_area *old, const struct bb_applet
 		char *tmp_argv[argc+1];
 		memcpy(tmp_argv, argv, (argc+1) * sizeof(tmp_argv[0]));
 		/* Finally we can call NOFORK applet's main() */
-		rc = a->main(argc, tmp_argv);
+		rc = applet_main[applet_no](argc, tmp_argv);
 	} else { /* xfunc died in NOFORK applet */
 		/* in case they meant to return 0... */
 		if (rc == -2222)
@@ -158,13 +157,13 @@ int run_nofork_applet_prime(struct nofork_save_area *old, const struct bb_applet
 	return rc;
 }
 
-int run_nofork_applet(const struct bb_applet *a, char **argv)
+int run_nofork_applet(int applet_no, char **argv)
 {
 	struct nofork_save_area old;
 
 	/* Saving globals */
 	save_nofork_data(&old);
-	return run_nofork_applet_prime(&old, a, argv);
+	return run_nofork_applet_prime(&old, applet_no, argv);
 }
 #endif /* FEATURE_PREFER_APPLETS */
 
@@ -172,15 +171,15 @@ int spawn_and_wait(char **argv)
 {
 	int rc;
 #if ENABLE_FEATURE_PREFER_APPLETS
-	const struct bb_applet *a = find_applet_by_name(argv[0]);
+	int a = find_applet_by_name(argv[0]);
 
-	if (a && (a->nofork
+	if (a >= 0 && (APPLET_IS_NOFORK(a)
 #if BB_MMU
-		 || a->noexec /* NOEXEC trick needs fork() */
+			|| APPLET_IS_NOEXEC(a) /* NOEXEC trick needs fork() */
 #endif
 	)) {
 #if BB_MMU
-		if (a->nofork)
+		if (APPLET_IS_NOFORK(a))
 #endif
 		{
 			return run_nofork_applet(a, argv);
@@ -193,8 +192,7 @@ int spawn_and_wait(char **argv)
 			return wait4pid(rc);
 		/* child */
 		xfunc_error_retval = EXIT_FAILURE;
-		current_applet = a;
-		run_current_applet_and_exit(argv);
+		run_applet_no_and_exit(a, argv);
 #endif
 	}
 #endif /* FEATURE_PREFER_APPLETS */

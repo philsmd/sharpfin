@@ -8,7 +8,7 @@
 
 #include "libbb.h"
 
-int getsebool_main(int argc, char **argv);
+int getsebool_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int getsebool_main(int argc, char **argv)
 {
 	int i, rc = 0, active, pending, len = 0;
@@ -53,7 +53,7 @@ int getsebool_main(int argc, char **argv)
 		printf("%s --> %s", names[i], (active ? "on" : "off"));
 		if (pending != active)
 			printf(" pending: %s", (pending ? "on" : "off"));
-		putchar('\n');
+		bb_putchar('\n');
 	}
 
 	if (ENABLE_FEATURE_CLEAN_UP) {

@@ -49,6 +49,12 @@ config NMETER
 	help
 	  Prints selected system stats continuously, one line per update.
 
+config PGREP
+	bool "pgrep"
+	default n
+	help
+	  Look for processes by name.
+
 config PIDOF
 	bool "pidof"
 	default n
@@ -72,6 +78,12 @@ config FEATURE_PIDOF_OMIT
 	  The special pid %PPID can be used to name the parent process
 	  of the pidof, in other words the calling shell or shell script.
 
+config PKILL
+	bool "pkill"
+	default n
+	help
+	  Send signals to processes by name.
+
 config PS
 	bool "ps"
 	default n
@@ -86,6 +98,21 @@ config FEATURE_PS_WIDE
 	  Support argument 'w' for wide output.
 	  If given once, 132 chars are printed and given more than
 	  one, the length is unlimited.
+
+config FEATURE_PS_TIME
+	bool "Enable time and elapsed time output"
+	default n
+	depends on PS && DESKTOP
+	help
+	  Support -o time and -o etime output specifiers.
+
+config FEATURE_PS_UNUSUAL_SYSTEMS
+	bool "Support Linux prior to 2.4.0 and non-ELF systems"
+	default n
+	depends on FEATURE_PS_TIME
+	help
+	  Include support for measuring HZ on old kernels and non-ELF systems
+	  (if you are on Linux 2.4.0+ and use ELF, you don't need this)
 
 config RENICE
 	bool "renice"
@@ -127,6 +154,13 @@ config FEATURE_TOP_DECIMALS
 	depends on FEATURE_TOP_CPU_USAGE_PERCENTAGE
 	help
 	  Show 1/10th of a percent in CPU/mem statistics.
+
+config FEATURE_TOPMEM
+	bool "topmem"
+	default n
+	depends on TOP
+	help
+	  Enable 's' in top (gives lots of memory info)
 
 config UPTIME
 	bool "uptime"

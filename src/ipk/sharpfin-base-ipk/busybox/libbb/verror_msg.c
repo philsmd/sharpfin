@@ -7,8 +7,8 @@
  * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
-#include <syslog.h>
 #include "libbb.h"
+#include <syslog.h>
 
 smallint logmode = LOGMODE_STDIO;
 const char *msg_eol = "\n";
@@ -45,8 +45,10 @@ void bb_verror_msg(const char *s, va_list p, const char* strerr)
 	msg[applet_len - 2] = ':';
 	msg[applet_len - 1] = ' ';
 	if (strerr) {
-		msg[used++] = ':';
-		msg[used++] = ' ';
+		if (s[0]) { /* not perror_nomsg? */
+			msg[used++] = ':';
+			msg[used++] = ' ';
+		}
 		strcpy(&msg[used], strerr);
 		used += strerr_len;
 	}

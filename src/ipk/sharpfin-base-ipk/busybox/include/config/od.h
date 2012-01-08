@@ -1,1 +1,1 @@
-#undef CONFIG_OD
+#define CONFIG_OD 1

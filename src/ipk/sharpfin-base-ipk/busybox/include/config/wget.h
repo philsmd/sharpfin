@@ -1,1 +1,1 @@
-#undef CONFIG_WGET
+#define CONFIG_WGET 1

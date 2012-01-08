@@ -18,25 +18,26 @@
  */
 
 #include "libbb.h"
-#include <sys/syslog.h>
+#include <syslog.h>
 #include <sys/klog.h>
 
 static void klogd_signal(int sig ATTRIBUTE_UNUSED)
 {
 	klogctl(7, NULL, 0);
-	klogctl(0, 0, 0);
-	syslog(LOG_NOTICE, "Kernel log daemon exiting");
-	exit(EXIT_SUCCESS);
+	klogctl(0, NULL, 0);
+	syslog(LOG_NOTICE, "klogd: exiting");
+	kill_myself_with_sig(sig);
 }
 
-#define OPT_LEVEL        1
-#define OPT_FOREGROUND   2
-
-#define KLOGD_LOGBUF_SIZE BUFSIZ
 #define log_buffer bb_common_bufsiz1
+enum {
+	KLOGD_LOGBUF_SIZE = sizeof(log_buffer),
+	OPT_LEVEL      = (1 << 0),
+	OPT_FOREGROUND = (1 << 1),
+};
 
-int klogd_main(int argc, char **argv);
-int klogd_main(int argc, char **argv)
+int klogd_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int klogd_main(int argc ATTRIBUTE_UNUSED, char **argv)
 {
 	int i = i; /* silence gcc */
 	char *start;
@@ -56,9 +57,10 @@ int klogd_main(int argc, char **argv)
 	openlog("kernel", 0, LOG_KERN);
 
 	/* Set up sig handlers */
-	signal(SIGINT, klogd_signal);
-	signal(SIGKILL, klogd_signal);
-	signal(SIGTERM, klogd_signal);
+	bb_signals(0
+		+ (1 << SIGINT)
+		+ (1 << SIGTERM)
+		, klogd_signal);
 	signal(SIGHUP, SIG_IGN);
 
 	/* "Open the log. Currently a NOP." */

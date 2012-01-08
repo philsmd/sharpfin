@@ -12,8 +12,8 @@
 
 #include "libbb.h"
 
-int catv_main(int argc, char **argv);
-int catv_main(int argc, char **argv)
+int catv_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int catv_main(int argc ATTRIBUTE_UNUSED, char **argv)
 {
 	int retval = EXIT_SUCCESS;
 	int fd;
@@ -27,18 +27,14 @@ int catv_main(int argc, char **argv)
 	argv += optind;
 
 	/* Read from stdin if there's nothing else to do. */
-	fd = 0;
-	if (!argv[0]) {
-		argv--;
-		goto jump_in;
-	}
+	if (!argv[0])
+		*--argv = (char*)"-";
 	do {
-		fd = open_or_warn(*argv, O_RDONLY);
+		fd = open_or_warn_stdin(*argv);
 		if (fd < 0) {
 			retval = EXIT_FAILURE;
 			continue;
 		}
- jump_in:
 		for (;;) {
 			int i, res;
 
@@ -62,13 +58,13 @@ int catv_main(int argc, char **argv)
 				if (c < 32) {
 					if (c == 10) {
 						if (flags & CATV_OPT_e)
-							putchar('$');
+							bb_putchar('$');
 					} else if (flags & (c==9 ? CATV_OPT_t : CATV_OPT_v)) {
 						printf("^%c", c+'@');
 						continue;
 					}
 				}
-				putchar(c);
+				bb_putchar(c);
 			}
 		}
 		if (ENABLE_FEATURE_CLEAN_UP && fd)

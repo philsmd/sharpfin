@@ -1,1 +1,1 @@
-#undef CONFIG_LENGTH
+#define CONFIG_LENGTH 1

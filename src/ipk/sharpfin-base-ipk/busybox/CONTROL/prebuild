@@ -1,0 +1,6 @@
+#!/bin/sh
+set -e
+set -x
+cp reciva/config-reciva .config
+chmod 755 CONTROL/make-command reciva/default.script examples/zcip.script
+

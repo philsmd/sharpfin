@@ -1,1 +1,1 @@
-#undef CONFIG_ARPING
+#define CONFIG_ARPING 1

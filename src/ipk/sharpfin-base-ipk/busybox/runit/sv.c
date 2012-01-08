@@ -150,7 +150,7 @@ Exit Codes
     is 99. sv exits 100 on error.
 */
 
-/* Busyboxed by Denis Vlasenko <vda.linux@googlemail.com> */
+/* Busyboxed by Denys Vlasenko <vda.linux@googlemail.com> */
 /* TODO: depends on runit_lib.c - review and reduce/eliminate */
 
 #include <sys/poll.h>
@@ -158,12 +158,22 @@ Exit Codes
 #include "libbb.h"
 #include "runit_lib.h"
 
-static const char *acts;
-static char **service;
-static unsigned rc;
+struct globals {
+	const char *acts;
+	char **service;
+	unsigned rc;
 /* "Bernstein" time format: unix + 0x400000000000000aULL */
-static uint64_t tstart, tnow;
-svstatus_t svstatus;
+	uint64_t tstart, tnow;
+	svstatus_t svstatus;
+};
+#define G (*(struct globals*)&bb_common_bufsiz1)
+#define acts         (G.acts        )
+#define service      (G.service     )
+#define rc           (G.rc          )
+#define tstart       (G.tstart      )
+#define tnow         (G.tnow        )
+#define svstatus     (G.svstatus    )
+#define INIT_G() do { } while (0)
 
 
 static void fatal_cannot(const char *m1) ATTRIBUTE_NORETURN;
@@ -179,7 +189,7 @@ static void out(const char *p, const char *m1)
 	if (errno) {
 		printf(": %s", strerror(errno));
 	}
-	puts(""); /* will also flush the output */
+	bb_putchar('\n'); /* will also flush the output */
 }
 
 #define WARN    "warning: "
@@ -283,7 +293,7 @@ static unsigned svstatus_print(const char *m)
 	return pid ? 1 : 2;
 }
 
-static int status(const char *unused)
+static int status(const char *unused ATTRIBUTE_UNUSED)
 {
 	int r;
 
@@ -300,7 +310,7 @@ static int status(const char *unused)
 		printf("; ");
 		svstatus_print("log");
 	}
-	puts(""); /* will also flush the output */
+	bb_putchar('\n'); /* will also flush the output */
 	return r;
 }
 
@@ -323,8 +333,7 @@ static int checkscript(void)
 		bb_perror_msg(WARN"cannot %s child %s/check", "run", *service);
 		return 0;
 	}
-	while (wait_pid(&w, pid) == -1) {
-		if (errno == EINTR) continue;
+	while (safe_waitpid(pid, &w, 0) == -1) {
 		bb_perror_msg(WARN"cannot %s child %s/check", "wait for", *service);
 		return 0;
 	}
@@ -372,7 +381,7 @@ static int check(const char *a)
 	}
 	printf(OK);
 	svstatus_print(*service);
-	puts(""); /* will also flush the output */
+	bb_putchar('\n'); /* will also flush the output */
 	return 1;
 }
 
@@ -401,7 +410,7 @@ static int control(const char *a)
 	return 1;
 }
 
-int sv_main(int argc, char **argv);
+int sv_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int sv_main(int argc, char **argv)
 {
 	unsigned opt;
@@ -413,10 +422,12 @@ int sv_main(int argc, char **argv)
 	char **servicex;
 	unsigned waitsec = 7;
 	smallint kll = 0;
-	smallint verbose = 0;
+	int verbose = 0;
 	int (*act)(const char*);
 	int (*cbk)(const char*);
 	int curdir;
+
+	INIT_G();
 
 	xfunc_error_retval = 100;
 
@@ -425,9 +436,8 @@ int sv_main(int argc, char **argv)
 	x = getenv("SVWAIT");
 	if (x) waitsec = xatou(x);
 
-	opt = getopt32(argv, "w:v", &x);
-	if (opt & 1) waitsec = xatou(x); // -w
-	if (opt & 2) verbose = 1; // -v
+	opt_complementary = "w+:vv"; /* -w N, -v is a counter */
+	opt = getopt32(argv, "w:v", &waitsec, &verbose);
 	argc -= optind;
 	argv += optind;
 	action = *argv++;
@@ -571,7 +581,7 @@ int sv_main(int argc, char **argv)
 					svstatus_print(*service);
 					++rc;
 				}
-				puts(""); /* will also flush the output */
+				bb_putchar('\n'); /* will also flush the output */
 				if (kll)
 					control("k");
  nullify_service:

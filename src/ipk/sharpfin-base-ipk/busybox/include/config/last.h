@@ -1,1 +1,1 @@
-#undef CONFIG_LAST
+#define CONFIG_LAST 1

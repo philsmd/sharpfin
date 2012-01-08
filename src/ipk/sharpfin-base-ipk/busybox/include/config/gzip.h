@@ -1,1 +1,1 @@
-#undef CONFIG_GZIP
+#define CONFIG_GZIP 1

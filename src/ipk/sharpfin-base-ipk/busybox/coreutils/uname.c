@@ -48,7 +48,7 @@ static const unsigned short utsname_offset[] ALIGN2 = {
 	offsetof(uname_info_t,processor)
 };
 
-int uname_main(int argc, char **argv);
+int uname_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int uname_main(int argc, char **argv)
 {
 	uname_info_t uname_info;
@@ -91,12 +91,12 @@ int uname_main(int argc, char **argv)
 		if (toprint & 1) {
 			printf(((char *)(&uname_info)) + *delta);
 			if (toprint > 1) {
-				putchar(' ');
+				bb_putchar(' ');
 			}
 		}
 		++delta;
 	} while (toprint >>= 1);
-	putchar('\n');
+	bb_putchar('\n');
 
 	fflush_stdout_and_exit(EXIT_SUCCESS);
 }

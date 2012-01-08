@@ -19,7 +19,7 @@ static int read_ip(const char *line, void *arg)
 	lsa = host_and_af2sockaddr(line, 0, AF_INET);
 	if (!lsa)
 		return 0;
-	*(uint32_t*)arg = lsa->sin.sin_addr.s_addr;
+	*(uint32_t*)arg = lsa->u.sin.sin_addr.s_addr;
 	free(lsa);
 	return 1;
 }
@@ -71,7 +71,7 @@ static int read_yn(const char *line, void *arg)
 
 
 /* find option 'code' in opt_list */
-struct option_set *find_option(struct option_set *opt_list, char code)
+struct option_set *find_option(struct option_set *opt_list, uint8_t code)
 {
 	while (opt_list && opt_list->data[OPT_CODE] < code)
 		opt_list = opt_list->next;
@@ -90,7 +90,7 @@ static void attach_option(struct option_set **opt_list,
 
 	existing = find_option(*opt_list, option->code);
 	if (!existing) {
-		DEBUG("Attaching option %s to list", option->name);
+		DEBUG("Attaching option %02x to list", option->code);
 
 #if ENABLE_FEATURE_RFC3397
 		if ((option->flags & TYPE_MASK) == OPTION_STR1035)
@@ -119,7 +119,7 @@ static void attach_option(struct option_set **opt_list,
 	}
 
 	/* add it to an existing option */
-	DEBUG("Attaching option %s to existing member of list", option->name);
+	DEBUG("Attaching option %02x to existing member of list", option->code);
 	if (option->flags & OPTION_LIST) {
 #if ENABLE_FEATURE_RFC3397
 		if ((option->flags & TYPE_MASK) == OPTION_STR1035)
@@ -154,31 +154,29 @@ static int read_opt(const char *const_line, void *arg)
 {
 	struct option_set **opt_list = arg;
 	char *opt, *val, *endptr;
-	const struct dhcp_option *option;
-	int retval = 0, length;
-	char buffer[8];
 	char *line;
+	const struct dhcp_option *option;
+	int retval, length, idx;
+	char buffer[8] __attribute__((aligned(4)));
 	uint16_t *result_u16 = (uint16_t *) buffer;
 	uint32_t *result_u32 = (uint32_t *) buffer;
 
 	/* Cheat, the only const line we'll actually get is "" */
 	line = (char *) const_line;
 	opt = strtok(line, " \t=");
-	if (!opt) return 0;
+	if (!opt)
+		return 0;
 
-	option = dhcp_options;
-	while (1) {
-		if (!option->code)
-			return 0;
-		if (!strcasecmp(option->name, opt))
-			break;
-		option++;
-	}
+	idx = index_in_strings(dhcp_option_strings, opt); /* NB: was strcasecmp! */
+	if (idx < 0)
+		return 0;
+	option = &dhcp_options[idx];
 
+	retval = 0;
 	do {
 		val = strtok(NULL, ", \t");
 		if (!val) break;
-		length = option_lengths[option->flags & TYPE_MASK];
+		length = dhcp_option_lengths[option->flags & TYPE_MASK];
 		retval = 0;
 		opt = buffer; /* new meaning for variable opt */
 		switch (option->flags & TYPE_MASK) {
@@ -288,8 +286,6 @@ static const struct config_keyword keywords[] = {
 	{"start",        read_ip,  &(server_config.start_ip),     "192.168.0.20"},
 	{"end",          read_ip,  &(server_config.end_ip),       "192.168.0.254"},
 	{"interface",    read_str, &(server_config.interface),    "eth0"},
-	{"option",       read_opt, &(server_config.options),      ""},
-	{"opt",          read_opt, &(server_config.options),      ""},
 	/* Avoid "max_leases value not sane" warning by setting default
 	 * to default_end_ip - default_start_ip + 1: */
 	{"max_leases",   read_u32, &(server_config.max_leases),   "235"},
@@ -301,13 +297,17 @@ static const struct config_keyword keywords[] = {
 	{"min_lease",    read_u32, &(server_config.min_lease),    "60"},
 	{"lease_file",   read_str, &(server_config.lease_file),   LEASES_FILE},
 	{"pidfile",      read_str, &(server_config.pidfile),      "/var/run/udhcpd.pid"},
-	{"notify_file",  read_str, &(server_config.notify_file),  ""},
 	{"siaddr",       read_ip,  &(server_config.siaddr),       "0.0.0.0"},
+	/* keywords with no defaults must be last! */
+	{"option",       read_opt, &(server_config.options),      ""},
+	{"opt",          read_opt, &(server_config.options),      ""},
+	{"notify_file",  read_str, &(server_config.notify_file),  ""},
 	{"sname",        read_str, &(server_config.sname),        ""},
 	{"boot_file",    read_str, &(server_config.boot_file),    ""},
 	{"static_lease", read_staticlease, &(server_config.static_leases), ""},
 	/* ADDME: static lease */
 };
+enum { KWS_WITH_DEFAULTS = ARRAY_SIZE(keywords) - 6 };
 
 
 /*
@@ -317,58 +317,48 @@ static const struct config_keyword keywords[] = {
  */
 #define READ_CONFIG_BUF_SIZE 80
 
-int read_config(const char *file)
+void read_config(const char *file)
 {
 	FILE *in;
 	char buffer[READ_CONFIG_BUF_SIZE], *token, *line;
-	int i, lm = 0;
+	int i, lineno;
 
-	for (i = 0; i < ARRAY_SIZE(keywords); i++)
-		if (keywords[i].def[0])
-			keywords[i].handler(keywords[i].def, keywords[i].var);
+	for (i = 0; i < KWS_WITH_DEFAULTS; i++)
+		keywords[i].handler(keywords[i].def, keywords[i].var);
 
 	in = fopen_or_warn(file, "r");
-	if (!in) {
-		return 0;
-	}
+	if (!in)
+		return;
 
+	lineno = 0;
 	while (fgets(buffer, READ_CONFIG_BUF_SIZE, in)) {
-		char debug_orig[READ_CONFIG_BUF_SIZE];
-		char *p;
+		lineno++;
+		/* *strchrnul(buffer, '\n') = '\0'; - trim() will do it */
+		*strchrnul(buffer, '#') = '\0';
 
-		lm++;
-		p = strchr(buffer, '\n');
-		if (p) *p = '\0';
-		if (ENABLE_FEATURE_UDHCP_DEBUG) strcpy(debug_orig, buffer);
-		p = strchr(buffer, '#');
-		if (p) *p = '\0';
+		token = strtok(buffer, " \t");
+		if (!token) continue;
+		line = strtok(NULL, "");
+		if (!line) continue;
 
-		if (!(token = strtok(buffer, " \t"))) continue;
-		if (!(line = strtok(NULL, ""))) continue;
+		trim(line); /* remove leading/trailing whitespace */
 
-		/* eat leading whitespace */
-		line = skip_whitespace(line);
-		/* eat trailing whitespace */
-		i = strlen(line) - 1;
-		while (i >= 0 && isspace(line[i]))
-			line[i--] = '\0';
-
-		for (i = 0; i < ARRAY_SIZE(keywords); i++)
-			if (!strcasecmp(token, keywords[i].keyword))
+		for (i = 0; i < ARRAY_SIZE(keywords); i++) {
+			if (!strcasecmp(token, keywords[i].keyword)) {
 				if (!keywords[i].handler(line, keywords[i].var)) {
-					bb_error_msg("cannot parse line %d of %s", lm, file);
-					if (ENABLE_FEATURE_UDHCP_DEBUG)
-						bb_error_msg("cannot parse '%s'", debug_orig);
+					bb_error_msg("can't parse line %d in %s at '%s'",
+							lineno, file, line);
 					/* reset back to the default value */
 					keywords[i].handler(keywords[i].def, keywords[i].var);
 				}
+				break;
+			}
+		}
 	}
 	fclose(in);
 
 	server_config.start_ip = ntohl(server_config.start_ip);
 	server_config.end_ip = ntohl(server_config.end_ip);
-
-	return 1;
 }
 
 
@@ -379,7 +369,7 @@ void write_leases(void)
 	time_t curr = time(0);
 	unsigned long tmp_time;
 
-	fp = open3_or_warn(server_config.lease_file, O_WRONLY|O_CREAT|O_TRUNC, 0666);
+	fp = open_or_warn(server_config.lease_file, O_WRONLY|O_CREAT|O_TRUNC);
 	if (fp < 0) {
 		return;
 	}

@@ -9,10 +9,12 @@
 
 #include "libbb.h"
 
-static const char signals[32][7] = {
+/* Believe it or not, but some arches have more than 32 SIGs!
+ * HPPA: SIGSTKFLT == 36. */
+
+static const char signals[][7] = {
 	// SUSv3 says kill must support these, and specifies the numerical values,
 	// http://www.opengroup.org/onlinepubs/009695399/utilities/kill.html
-	// TODO: "[SIG]EXIT" shouldn't work for kill, right?
 	// {0, "EXIT"}, {1, "HUP"}, {2, "INT"}, {3, "QUIT"},
 	// {6, "ABRT"}, {9, "KILL"}, {14, "ALRM"}, {15, "TERM"}
 	// And Posix adds the following:
@@ -20,6 +22,7 @@ static const char signals[32][7] = {
 	// {SIGSEGV, "SEGV"}, {SIGUSR2, "USR2"}, {SIGPIPE, "PIPE"}, {SIGCHLD, "CHLD"},
 	// {SIGCONT, "CONT"}, {SIGSTOP, "STOP"}, {SIGTSTP, "TSTP"}, {SIGTTIN, "TTIN"},
 	// {SIGTTOU, "TTOU"}
+
 	[0] = "EXIT",
 #ifdef SIGHUP
 	[SIGHUP   ] = "HUP",
@@ -132,7 +135,9 @@ int get_signum(const char *name)
 			return i;
 
 #if ENABLE_DESKTOP && (defined(SIGIOT) || defined(SIGIO))
-	/* These are aliased to other names */
+	/* SIGIO[T] are aliased to other names,
+	 * thus cannot be stored in the signals[] array.
+	 * Need special code to recognize them */
 	if ((name[0] | 0x20) == 'i' && (name[1] | 0x20) == 'o') {
 #ifdef SIGIO
 		if (!name[2])
@@ -158,4 +163,18 @@ const char *get_signame(int number)
 	}
 
 	return itoa(number);
+}
+
+
+// Print the whole signal list
+
+void print_signames(void)
+{
+	int signo;
+
+	for (signo = 1; signo < ARRAY_SIZE(signals); signo++) {
+		const char *name = signals[signo];
+		if (name[0])
+			puts(name);
+	}
 }

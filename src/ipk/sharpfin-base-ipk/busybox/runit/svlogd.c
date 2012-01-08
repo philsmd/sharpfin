@@ -25,7 +25,7 @@ OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-/* Busyboxed by Denis Vlasenko <vda.linux@googlemail.com> */
+/* Busyboxed by Denys Vlasenko <vda.linux@googlemail.com> */
 /* TODO: depends on runit_lib.c - review and reduce/eliminate */
 
 #include <sys/poll.h>
@@ -37,31 +37,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define FMT_PTIME 30
 
-static unsigned verbose;
-static int linemax = 1000;
-////static int buflen = 1024;
-static int linelen;
-
-static char **fndir;
-static int fdwdir;
-static int wstat;
-static unsigned nearest_rotate;
-
-static char *line;
-static smallint exitasap;
-static smallint rotateasap;
-static smallint reopenasap;
-static smallint linecomplete = 1;
-
-static smallint tmaxflag;
-
-static char repl;
-static const char *replace = "";
-
-static sigset_t *blocked_sigset;
-static int fl_flag_0;
-
-static struct logdir {
+struct logdir {
 	////char *btmp;
 	/* pattern list to match, in "aa\0bb\0\cc\0\0" form */
 	char *inst;
@@ -81,8 +57,64 @@ static struct logdir {
 	char fnsave[FMT_PTIME];
 	char match;
 	char matcherr;
-} *dir;
-static unsigned dirn;
+};
+
+
+struct globals {
+	struct logdir *dir;
+	unsigned verbose;
+	int linemax;
+	////int buflen;
+	int linelen;
+
+	int fdwdir;
+	char **fndir;
+	int wstat;
+	unsigned nearest_rotate;
+
+	smallint exitasap;
+	smallint rotateasap;
+	smallint reopenasap;
+	smallint linecomplete;
+	smallint tmaxflag;
+
+	char repl;
+	const char *replace;
+	int fl_flag_0;
+	unsigned dirn;
+
+	sigset_t blocked_sigset;
+};
+#define G (*(struct globals*)ptr_to_globals)
+#define dir            (G.dir           )
+#define verbose        (G.verbose       )
+#define linemax        (G.linemax       )
+#define buflen         (G.buflen        )
+#define linelen        (G.linelen       )
+#define fndir          (G.fndir         )
+#define fdwdir         (G.fdwdir        )
+#define wstat          (G.wstat         )
+#define nearest_rotate (G.nearest_rotate)
+#define exitasap       (G.exitasap      )
+#define rotateasap     (G.rotateasap    )
+#define reopenasap     (G.reopenasap    )
+#define linecomplete   (G.linecomplete  )
+#define tmaxflag       (G.tmaxflag      )
+#define repl           (G.repl          )
+#define replace        (G.replace       )
+#define blocked_sigset (G.blocked_sigset)
+#define fl_flag_0      (G.fl_flag_0     )
+#define dirn           (G.dirn          )
+#define INIT_G() do { \
+	SET_PTR_TO_GLOBALS(xzalloc(sizeof(G))); \
+	linemax = 1000; \
+	/*buflen = 1024;*/ \
+	linecomplete = 1; \
+	replace = ""; \
+} while (0)
+
+#define line bb_common_bufsiz1
+
 
 #define FATAL "fatal: "
 #define WARNING "warning: "
@@ -174,25 +206,32 @@ static void fmt_time_bernstein_25(char *s)
 	bin2hex(s, (char*)pack, 12);
 }
 
-static unsigned processorstart(struct logdir *ld)
+static void processorstart(struct logdir *ld)
 {
+	char sv_ch;
 	int pid;
 
-	if (!ld->processor) return 0;
+	if (!ld->processor) return;
 	if (ld->ppid) {
 		warnx("processor already running", ld->name);
-		return 0;
+		return;
 	}
-	while ((pid = fork()) == -1)
-		pause2cannot("fork for processor", ld->name);
+
+	/* vfork'ed child trashes this byte, save... */
+	sv_ch = ld->fnsave[26];
+
+	while ((pid = vfork()) == -1)
+		pause2cannot("vfork for processor", ld->name);
 	if (!pid) {
 		char *prog[4];
 		int fd;
 
 		/* child */
-		signal(SIGTERM, SIG_DFL);
-		signal(SIGALRM, SIG_DFL);
-		signal(SIGHUP, SIG_DFL);
+		bb_signals(0
+			+ (1 << SIGTERM)
+			+ (1 << SIGALRM)
+			+ (1 << SIGHUP)
+			, SIG_DFL);
 		sig_unblock(SIGTERM);
 		sig_unblock(SIGALRM);
 		sig_unblock(SIGHUP);
@@ -201,7 +240,7 @@ static unsigned processorstart(struct logdir *ld)
 			bb_error_msg(INFO"processing: %s/%s", ld->name, ld->fnsave);
 		fd = xopen(ld->fnsave, O_RDONLY|O_NDELAY);
 		xmove_fd(fd, 0);
-		ld->fnsave[26] = 't';
+		ld->fnsave[26] = 't'; /* <- that's why we need sv_ch! */
 		fd = xopen(ld->fnsave, O_WRONLY|O_NDELAY|O_TRUNC|O_CREAT);
 		xmove_fd(fd, 1);
 		fd = open_read("state");
@@ -220,11 +259,11 @@ static unsigned processorstart(struct logdir *ld)
 		prog[1] = (char*)"-c";
 		prog[2] = ld->processor;
 		prog[3] = NULL;
-		execve("/bin/sh", prog, environ);
+		execv("/bin/sh", prog);
 		bb_perror_msg_and_die(FATAL"cannot %s processor %s", "run", ld->name);
 	}
+	ld->fnsave[26] = sv_ch; /* ...restore */
 	ld->ppid = pid;
-	return 1;
 }
 
 static unsigned processorstop(struct logdir *ld)
@@ -233,7 +272,7 @@ static unsigned processorstop(struct logdir *ld)
 
 	if (ld->ppid) {
 		sig_unblock(SIGHUP);
-		while (wait_pid(&wstat, ld->ppid) == -1)
+		while (safe_waitpid(ld->ppid, &wstat, 0) == -1)
 			pause2cannot("wait for processor", ld->name);
 		sig_block(SIGHUP);
 		ld->ppid = 0;
@@ -361,7 +400,7 @@ static unsigned rotate(struct logdir *ld)
 		/* we presume this cannot fail */
 		ld->filecur = fdopen(ld->fdcur, "a"); ////
 		setvbuf(ld->filecur, NULL, _IOFBF, linelen); ////
-		coe(ld->fdcur);
+		close_on_exec_on(ld->fdcur);
 		ld->size = 0;
 		while (fchmod(ld->fdcur, 0644) == -1)
 			pause2cannot("set mode of current", ld->name);
@@ -482,7 +521,7 @@ static unsigned logdir_open(struct logdir *ld, const char *fn)
 		warn2("cannot open log directory", (char*)fn);
 		return 0;
 	}
-	coe(ld->fddir);
+	close_on_exec_on(ld->fddir);
 	if (fchdir(ld->fddir) == -1) {
 		logdir_close(ld);
 		warn2("cannot change directory", (char*)fn);
@@ -498,7 +537,7 @@ static unsigned logdir_open(struct logdir *ld, const char *fn)
 			pause1cannot("change to initial working directory");
 		return 0;
 	}
-	coe(ld->fdlock);
+	close_on_exec_on(ld->fdlock);
 
 	ld->size = 0;
 	ld->sizemax = 1000000;
@@ -624,7 +663,7 @@ static unsigned logdir_open(struct logdir *ld, const char *fn)
 	ld->filecur = fdopen(ld->fdcur, "a"); ////
 	setvbuf(ld->filecur, NULL, _IOFBF, linelen); ////
 
-	coe(ld->fdcur);
+	close_on_exec_on(ld->fdcur);
 	while (fchmod(ld->fdcur, 0644) == -1)
 		pause2cannot("set mode of current", ld->name);
 
@@ -665,7 +704,7 @@ static ssize_t ndelay_read(int fd, void *buf, size_t count)
 }
 
 /* Used for reading stdin */
-static int buffer_pread(int fd, char *s, unsigned len)
+static int buffer_pread(/*int fd, */char *s, unsigned len)
 {
 	unsigned now;
 	struct pollfd input;
@@ -700,16 +739,16 @@ static int buffer_pread(int fd, char *s, unsigned len)
 			}
 		}
 
-		sigprocmask(SIG_UNBLOCK, blocked_sigset, NULL);
+		sigprocmask(SIG_UNBLOCK, &blocked_sigset, NULL);
 		i = nearest_rotate - now;
 		if (i > 1000000)
 			i = 1000000;
 		if (i <= 0)
 			i = 1;
 		poll(&input, 1, i * 1000);
-		sigprocmask(SIG_BLOCK, blocked_sigset, NULL);
+		sigprocmask(SIG_BLOCK, &blocked_sigset, NULL);
 
-		i = ndelay_read(fd, s, len);
+		i = ndelay_read(0, s, len);
 		if (i >= 0)
 			break;
 		if (errno == EINTR)
@@ -749,20 +788,20 @@ static int buffer_pread(int fd, char *s, unsigned len)
 	return i;
 }
 
-static void sig_term_handler(int sig_no)
+static void sig_term_handler(int sig_no ATTRIBUTE_UNUSED)
 {
 	if (verbose)
 		bb_error_msg(INFO"sig%s received", "term");
 	exitasap = 1;
 }
 
-static void sig_child_handler(int sig_no)
+static void sig_child_handler(int sig_no ATTRIBUTE_UNUSED)
 {
 	int pid, l;
 
 	if (verbose)
 		bb_error_msg(INFO"sig%s received", "child");
-	while ((pid = wait_nohang(&wstat)) > 0) {
+	while ((pid = wait_any_nohang(&wstat)) > 0) {
 		for (l = 0; l < dirn; ++l) {
 			if (dir[l].ppid == pid) {
 				dir[l].ppid = 0;
@@ -773,14 +812,14 @@ static void sig_child_handler(int sig_no)
 	}
 }
 
-static void sig_alarm_handler(int sig_no)
+static void sig_alarm_handler(int sig_no ATTRIBUTE_UNUSED)
 {
 	if (verbose)
 		bb_error_msg(INFO"sig%s received", "alarm");
 	rotateasap = 1;
 }
 
-static void sig_hangup_handler(int sig_no)
+static void sig_hangup_handler(int sig_no ATTRIBUTE_UNUSED)
 {
 	if (verbose)
 		bb_error_msg(INFO"sig%s received", "hangup");
@@ -811,10 +850,9 @@ static void logmatch(struct logdir *ld)
 	}
 }
 
-int svlogd_main(int argc, char **argv);
+int svlogd_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int svlogd_main(int argc, char **argv)
 {
-	sigset_t ss;
 	char *r,*l,*b;
 	ssize_t stdin_cnt = 0;
 	int i;
@@ -822,7 +860,7 @@ int svlogd_main(int argc, char **argv)
 	unsigned timestamp = 0;
 	void* (*memRchr)(const void *, int, size_t) = memchr;
 
-#define line bb_common_bufsiz1
+	INIT_G();
 
 	opt_complementary = "tt:vv";
 	opt = getopt32(argv, "r:R:l:b:tv",
@@ -851,7 +889,7 @@ int svlogd_main(int argc, char **argv)
 	if (dirn <= 0) usage();
 	////if (buflen <= linemax) usage();
 	fdwdir = xopen(".", O_RDONLY|O_NDELAY);
-	coe(fdwdir);
+	close_on_exec_on(fdwdir);
 	dir = xzalloc(dirn * sizeof(struct logdir));
 	for (i = 0; i < dirn; ++i) {
 		dir[i].fddir = -1;
@@ -866,17 +904,16 @@ int svlogd_main(int argc, char **argv)
 	 * with the same stdin */
 	fl_flag_0 = fcntl(0, F_GETFL);
 
-	blocked_sigset = &ss;
-	sigemptyset(&ss);
-	sigaddset(&ss, SIGTERM);
-	sigaddset(&ss, SIGCHLD);
-	sigaddset(&ss, SIGALRM);
-	sigaddset(&ss, SIGHUP);
-	sigprocmask(SIG_BLOCK, &ss, NULL);
-	sig_catch(SIGTERM, sig_term_handler);
-	sig_catch(SIGCHLD, sig_child_handler);
-	sig_catch(SIGALRM, sig_alarm_handler);
-	sig_catch(SIGHUP, sig_hangup_handler);
+	sigemptyset(&blocked_sigset);
+	sigaddset(&blocked_sigset, SIGTERM);
+	sigaddset(&blocked_sigset, SIGCHLD);
+	sigaddset(&blocked_sigset, SIGALRM);
+	sigaddset(&blocked_sigset, SIGHUP);
+	sigprocmask(SIG_BLOCK, &blocked_sigset, NULL);
+	bb_signals_recursive(1 << SIGTERM, sig_term_handler);
+	bb_signals_recursive(1 << SIGCHLD, sig_child_handler);
+	bb_signals_recursive(1 << SIGALRM, sig_alarm_handler);
+	bb_signals_recursive(1 << SIGHUP, sig_hangup_handler);
 
 	logdirs_reopen();
 
@@ -909,7 +946,7 @@ int svlogd_main(int argc, char **argv)
 		if (!np && !exitasap) {
 			i = linemax - stdin_cnt; /* avail. bytes at tail */
 			if (i >= 128) {
-				i = buffer_pread(0, lineptr + stdin_cnt, i);
+				i = buffer_pread(/*0, */lineptr + stdin_cnt, i);
 				if (i <= 0) /* EOF or error on stdin */
 					exitasap = 1;
 				else {
@@ -955,9 +992,11 @@ int svlogd_main(int argc, char **argv)
 			if (ld->fddir == -1) continue;
 			if (ld->inst)
 				logmatch(ld);
-			if (ld->matcherr == 'e')
+			if (ld->matcherr == 'e') {
+				/* runit-1.8.0 compat: if timestamping, do it on stderr too */
 				////full_write(2, printptr, printlen);
-				fwrite(lineptr, 1, linelen, stderr);
+				fwrite(printptr, 1, printlen, stderr);
+			}
 			if (ld->match != '+') continue;
 			buffer_pwrite(i, printptr, printlen);
 		}
@@ -966,7 +1005,7 @@ int svlogd_main(int argc, char **argv)
 		/* read/write repeatedly until we see it */
 		while (ch != '\n') {
 			/* lineptr is emptied now, safe to use as buffer */
-			stdin_cnt = exitasap ? -1 : buffer_pread(0, lineptr, linemax);
+			stdin_cnt = exitasap ? -1 : buffer_pread(/*0, */lineptr, linemax);
 			if (stdin_cnt <= 0) { /* EOF or error on stdin */
 				exitasap = 1;
 				lineptr[0] = ch = '\n';
@@ -982,9 +1021,10 @@ int svlogd_main(int argc, char **argv)
 			/* linelen == no of chars incl. '\n' (or == stdin_cnt) */
 			for (i = 0; i < dirn; ++i) {
 				if (dir[i].fddir == -1) continue;
-				if (dir[i].matcherr == 'e')
+				if (dir[i].matcherr == 'e') {
 					////full_write(2, lineptr, linelen);
 					fwrite(lineptr, 1, linelen, stderr);
+				}
 				if (dir[i].match != '+') continue;
 				buffer_pwrite(i, lineptr, linelen);
 			}

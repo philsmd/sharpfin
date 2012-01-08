@@ -1,1 +1,1 @@
-#undef CONFIG_UPTIME
+#define CONFIG_UPTIME 1

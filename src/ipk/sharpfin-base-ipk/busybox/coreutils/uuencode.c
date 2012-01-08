@@ -15,7 +15,7 @@ enum {
 	DST_BUF_SIZE = 4 * ((SRC_BUF_SIZE + 2) / 3),
 };
 
-int uuencode_main(int argc, char **argv);
+int uuencode_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int uuencode_main(int argc, char **argv)
 {
 	struct stat stat_buf;
@@ -48,9 +48,9 @@ int uuencode_main(int argc, char **argv)
 			bb_perror_msg_and_die(bb_msg_read_error);
 		/* Encode the buffer we just read in */
 		bb_uuencode(dst_buf, src_buf, size, tbl);
-		putchar('\n');
+		bb_putchar('\n');
 		if (tbl == bb_uuenc_tbl_std) {
-			putchar(tbl[size]);
+			bb_putchar(tbl[size]);
 		}
 		fflush(stdout);
 		xwrite(STDOUT_FILENO, dst_buf, 4 * ((size + 2) / 3));

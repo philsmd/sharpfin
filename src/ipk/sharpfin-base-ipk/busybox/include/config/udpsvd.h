@@ -1,1 +1,1 @@
-#undef CONFIG_UDPSVD
+#define CONFIG_UDPSVD 1

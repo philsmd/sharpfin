@@ -24,7 +24,7 @@
 union semun {
 	int val;
 	struct semid_ds *buf;
-	unsigned short int *array;
+	unsigned short *array;
 	struct seminfo *__buf;
 };
 #endif
@@ -76,7 +76,7 @@ static int remove_ids(type_id type, int argc, char **argv)
 #endif /* IPCRM_LEGACY */
 
 
-int ipcrm_main(int argc, char **argv);
+int ipcrm_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int ipcrm_main(int argc, char **argv)
 {
 	int c;
