@@ -2,8 +2,8 @@ Package: sharpfin-httpd
 Priority: optional
 Version:  0.1
 Architecture: arm
-Maintainer: Sharpfin Project (http://www.sharpfin.zevv.nl/)
-Source: http://www.sharpfin.zevv.nl/gpl
+Maintainer: Sharpfin Project (http://www.pschmidt.it/sharpfin/)
+Source: http://www.pschmidt.it/sharpfin/gpl
 Depends: sharpfin-base
 Section: extras
 Provides: httpd_init
