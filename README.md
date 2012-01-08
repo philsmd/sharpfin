@@ -1,22 +1,16 @@
 # About
 
-This project aims to revive the sharpfin project (http://reciva-users.wikispot.org/Sharpfinquickguide, at its time hosted on http://zevv.nl - sharpfin.zevv.nl).
-This is a slightly modified version of the full SVN repository (at least this is what the main authors told me).
-Please help as much as you can to revive this great project.
-We need to adapt the code to new firmwares and test it.
-Afterwards we could try to create new apps and other cool features (e.g. improve and add features to the web-frontend).
+This project aims to revive the Sharpfin project (now hosted at http://www.pschmidt.it/sharpfin).  
 
-Did you also like this project and didn't believe that this project quit so immediately? Then you maybe are interested in helping me to improve and extend this code.
+Please help me to revive this great project. We need to adapt the code to new firmwares and test it.  
+Did you also like this project and didn't believe that this project quit so immediately? Then you may be interested in helping me to improve and extend this code.
 
 This is for developers only. No warranty!
-I'm NOT one of the main developers but I was kindly provided by the whole code of the old sharpfin project (so don't ask difficult questions, I'm NOT yet expert of the code).
-
+ 
 Thx for all contributors  
 Happy Hacking!  
 
-P.S. Please also help to clear copyright and licensing issues
-
-** NEW WIKI ** [Sharpfin Wiki](http://pschmidt.it/sharpfin "Sharpfin Wiki")
+** WIKI ** [Sharpfin Wiki](http://pschmidt.it/sharpfin "Sharpfin Wiki")
 
 
 # Features  
@@ -25,19 +19,18 @@ P.S. Please also help to clear copyright and licensing issues
 * FTP-server
 * Firmware upload
 * Firmware patching
-* Some Apps
-* ... (please help to complete this list)
+* Some Custom Apps
 
 # Requirements
 
 Software:  
-- windres  
-- gcc/mingw  
+- Cygwin/windres to build the patchserver  
+- gcc / crosstools
 - reciva sources from http://copper.reciva.com/sources/ 
 
 
 Hardware:  
-- it should work on most reciva (internet) radios but also on others (please help test) ?
+- it should work on most reciva (internet) radios
 
 # Installation and First Steps
 * Clone this repository:  
@@ -49,8 +42,6 @@ Hardware:
     cd sharpflash    
     make  
 
-(Please help to write full instructions to build and use the Web-server and build patch files)
-
 # Hacking
 
 * Add more features to the web-frontend
@@ -59,16 +50,16 @@ Hardware:
 * and,and,and (add your suggestions here, but please help also to implement them)
 
 # Credits and Contributors 
-Credits go to the main developers of the former sharpfin project, among others:
+Credits go to the main developers of the former Sharpfin project, among others:
   
 * Steve Clarke
 * Ico Doornekamp
 
-(Note: there are many, many developers that are involved in some libraries and other tools used by sharpfin, they can be found in the according header/source files, if I missed somebody there please notify me)
+(Note: there are many, many developers that are involved in some libraries and other tools used by Sharpfin, they can be found in the according header/source files, if I missed somebody there please notify me)
 
 # License
 
 This project is lincensed under the **GNU GENERAL PUBLIC LICENSE version 3**.  
-If you find some code/headers within this repository NOT compatible w/ this license, please let me know immediately. I didn't write all of this code, but had a quick (no it was deep) to all libraries (and most source files) contained, and also the main authors were not 100% sure about all parts. Help me verify it's compatibility or incompatibility and feel free to fork and contribute. 
+If you find some code/headers within this repository NOT compatible w/ this license, please let me know immediately. I didn't write all of this code, but had a deep look at all libraries and source files contained.
 
 Thanks.
