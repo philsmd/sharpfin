@@ -1,1 +1,1 @@
-#define CONFIG_CHRT 1
+#undef CONFIG_CHRT

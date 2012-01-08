@@ -1,1 +1,1 @@
-#define CONFIG_RPM2CPIO 1
+#undef CONFIG_RPM2CPIO

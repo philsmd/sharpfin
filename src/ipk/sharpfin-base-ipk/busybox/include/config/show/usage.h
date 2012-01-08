@@ -1,1 +1,1 @@
-#define CONFIG_SHOW_USAGE 1
+#undef CONFIG_SHOW_USAGE

@@ -1,1 +1,1 @@
-#define CONFIG_VCONFIG 1
+#undef CONFIG_VCONFIG

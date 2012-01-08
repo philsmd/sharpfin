@@ -1,1 +1,1 @@
-#define CONFIG_ETHER_WAKE 1
+#undef CONFIG_ETHER_WAKE

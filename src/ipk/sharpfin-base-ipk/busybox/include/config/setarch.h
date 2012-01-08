@@ -1,1 +1,1 @@
-#define CONFIG_SETARCH 1
+#undef CONFIG_SETARCH

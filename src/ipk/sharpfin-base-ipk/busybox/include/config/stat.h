@@ -1,1 +1,1 @@
-#define CONFIG_STAT 1
+#undef CONFIG_STAT

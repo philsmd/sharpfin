@@ -1,1 +1,1 @@
-#define CONFIG_REALPATH 1
+#undef CONFIG_REALPATH

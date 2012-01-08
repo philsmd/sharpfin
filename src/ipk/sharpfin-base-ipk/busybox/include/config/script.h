@@ -1,1 +1,1 @@
-#define CONFIG_SCRIPT 1
+#undef CONFIG_SCRIPT

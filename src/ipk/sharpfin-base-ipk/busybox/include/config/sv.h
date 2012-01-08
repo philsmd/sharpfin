@@ -1,1 +1,1 @@
-#define CONFIG_SV 1
+#undef CONFIG_SV

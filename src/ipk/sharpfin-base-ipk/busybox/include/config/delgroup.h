@@ -1,1 +1,1 @@
-#define CONFIG_DELGROUP 1
+#undef CONFIG_DELGROUP

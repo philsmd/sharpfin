@@ -1,1 +1,1 @@
-#define CONFIG_CKSUM 1
+#undef CONFIG_CKSUM

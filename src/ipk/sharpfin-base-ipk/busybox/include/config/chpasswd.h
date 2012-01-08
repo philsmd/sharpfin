@@ -1,1 +1,1 @@
-#define CONFIG_CHPASSWD 1
+#undef CONFIG_CHPASSWD

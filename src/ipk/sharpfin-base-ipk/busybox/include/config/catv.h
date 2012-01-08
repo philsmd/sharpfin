@@ -1,1 +1,1 @@
-#define CONFIG_CATV 1
+#undef CONFIG_CATV

@@ -1,1 +1,1 @@
-#define CONFIG_IPCRM 1
+#undef CONFIG_IPCRM

@@ -1,1 +1,1 @@
-#define CONFIG_ARP 1
+#undef CONFIG_ARP

@@ -1,1 +1,1 @@
-#define CONFIG_WHO 1
+#undef CONFIG_WHO

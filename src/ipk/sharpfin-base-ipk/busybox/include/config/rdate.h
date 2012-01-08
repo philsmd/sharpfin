@@ -1,1 +1,1 @@
-#define CONFIG_RDATE 1
+#undef CONFIG_RDATE

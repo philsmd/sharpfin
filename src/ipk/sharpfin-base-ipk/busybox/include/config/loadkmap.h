@@ -1,1 +1,1 @@
-#define CONFIG_LOADKMAP 1
+#undef CONFIG_LOADKMAP

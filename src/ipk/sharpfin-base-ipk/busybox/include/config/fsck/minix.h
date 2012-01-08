@@ -1,1 +1,1 @@
-#define CONFIG_FSCK_MINIX 1
+#undef CONFIG_FSCK_MINIX

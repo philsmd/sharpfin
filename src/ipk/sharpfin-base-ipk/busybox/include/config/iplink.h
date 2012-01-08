@@ -1,1 +1,1 @@
-#define CONFIG_IPLINK 1
+#undef CONFIG_IPLINK

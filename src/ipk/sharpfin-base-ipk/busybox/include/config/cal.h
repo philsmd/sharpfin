@@ -1,1 +1,1 @@
-#define CONFIG_CAL 1
+#undef CONFIG_CAL

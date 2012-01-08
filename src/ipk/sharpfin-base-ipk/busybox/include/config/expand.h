@@ -1,1 +1,1 @@
-#define CONFIG_EXPAND 1
+#undef CONFIG_EXPAND
