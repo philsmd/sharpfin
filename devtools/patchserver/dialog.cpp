@@ -25,7 +25,6 @@
 #include "launcher.h"
 #include <stdio.h>
 
-//---------------------------------------------------------------------------
 static LRESULT CALLBACK inputDlgProc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
 static char buffer[MAX] ;
 static char *mytitle, *myprompt ;
@@ -36,18 +35,13 @@ char **mylist ;
 int myentries ;
 int myselection ;
 
-//---------------------------------------------------------------------------
-LRESULT CALLBACK inputDlgProc(HWND hWndDlg, UINT Msg, WPARAM wParam, LPARAM lParam)
-{
-	switch(Msg)
-	{
+LRESULT CALLBACK inputDlgProc(HWND hWndDlg, UINT Msg, WPARAM wParam, LPARAM lParam) {
+	switch(Msg) {
 	case WM_INITDIALOG:
 		SetDlgItemText(hWndDlg, IDC_PROMPT, myprompt) ;
 		return TRUE;
-
 	case WM_COMMAND:
-		switch(wParam)
-		{
+		switch(wParam) {
 		case IDOK:
 			GetDlgItemText(hWndDlg, IDC_TEXT, buffer, MAX-1) ;
 			EndDialog(hWndDlg, 0);
@@ -55,12 +49,10 @@ LRESULT CALLBACK inputDlgProc(HWND hWndDlg, UINT Msg, WPARAM wParam, LPARAM lPar
 		}
 		break;
 	}
-
 	return FALSE;
 }
  
-char *inputstring(HINSTANCE parent, char *title, char *prompt)
-{
+char *inputstring(HINSTANCE parent, char *title, char *prompt) {
 	HWND hWnd;
 	int i ;
 	char buf[MAX] ;
@@ -77,13 +69,9 @@ char *inputstring(HINSTANCE parent, char *title, char *prompt)
 
 }
 
-//---------------------------------------------------------------------------
-
-char *getfilename(char *ext, char *title)
-{
+char *getfilename(char *ext, char *title) {
 	OPENFILENAME opf;
 	static char filename[MAX];
-
 	memset((void *)&opf, 0, sizeof(opf)) ;
 	
 	opf.lStructSize=sizeof(opf) ;
@@ -101,15 +89,24 @@ char *getfilename(char *ext, char *title)
 	}
 }
 
+void onItemSelected(HWND hWndDlg) {
+	// Get selection index
+	myselection=SendDlgItemMessage(hWndDlg, IDC_LIST, LB_GETCURSEL, 0, 0) ;
+	if (myselection==LB_ERR) {
+		myselection=-1 ;
+	} else {
+		// Get the index of the URL
+		myselection=SendDlgItemMessage(hWndDlg, IDC_LIST, LB_GETITEMDATA, (WPARAM)myselection, 0) ;
+	}
+	// Get DNS
+	GetDlgItemText(hWndDlg, IDC_DNS, mydnsaddress, MAX-1) ;
+	EndDialog(hWndDlg, 0);
+}
 
-//---------------------------------------------------------------------------
-
-LRESULT CALLBACK selectDlgProc(HWND hWndDlg, UINT Msg, WPARAM wParam, LPARAM lParam)
-{
+LRESULT CALLBACK selectDlgProc(HWND hWndDlg, UINT Msg, WPARAM wParam, LPARAM lParam) {
 	int i, p ;
 	
-	switch(Msg)
-	{
+	switch(Msg) {
 	case WM_INITDIALOG:
 		// mylist contains URL, description, URL, description and we only want to print the descriptions
 		for (i=1; i<myentries; i+=2) {
@@ -122,50 +119,35 @@ LRESULT CALLBACK selectDlgProc(HWND hWndDlg, UINT Msg, WPARAM wParam, LPARAM lPa
 		
 		// Set the DNS field
 		SetDlgItemText(hWndDlg, IDC_DNS, mydnsaddress) ;
-		
 		return TRUE;
+	
 
 	case WM_COMMAND:
-		switch(wParam)
-		{
+		if ((LOWORD(wParam)==IDC_LIST)&&(HIWORD(wParam)==LBN_DBLCLK)) {
+			onItemSelected(hWndDlg);
+			return TRUE;
+		}
+		switch(wParam) {
 		case IDCANCEL:
 			myselection=-2 ;
 			EndDialog(hWndDlg, 0) ;
 			return TRUE ;
 		case IDOK:
-			// Get selection index
-			myselection=SendDlgItemMessage(hWndDlg, IDC_LIST, LB_GETCURSEL, 0, 0) ;
-			if (myselection==LB_ERR) 
-				myselection=-1 ;
-			else
-				// Get the index of the URL
-				myselection=SendDlgItemMessage(hWndDlg, IDC_LIST, LB_GETITEMDATA, (WPARAM)myselection, 0) ;
-				
-			// Get DNS
-			GetDlgItemText(hWndDlg, IDC_DNS, mydnsaddress, MAX-1) ;
-			EndDialog(hWndDlg, 0);
+			onItemSelected(hWndDlg);
 			return TRUE;
 		}
 		break;
 	}
-
 	return FALSE;
 }
-//---------------------------------------------------------------------------
  
-int selectpatch(HINSTANCE parent, char *dnsaddress, int entries, char **list)
-{
+int selectpatch(HINSTANCE parent, char *dnsaddress, int entries, char **list) {
 	HWND hWnd;
 	int i ;
-	
 	mydnsaddress=dnsaddress ;
 	myentries=entries ;
 	mylist=list ;
 	myselection=-1 ;
-	
-	i=DialogBox(parent, MAKEINTRESOURCE(IDD_DLGSELECT),
-	          0, reinterpret_cast<DLGPROC>(selectDlgProc));
-		
-	return myselection ;
-
+	i=DialogBox(parent,MAKEINTRESOURCE(IDD_DLGSELECT),0,reinterpret_cast<DLGPROC>(selectDlgProc));
+	return myselection;
 }
