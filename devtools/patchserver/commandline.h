@@ -25,15 +25,6 @@
 #ifndef _commandline_defined_
 #define _commandline_defined_
 
-#ifdef WINDOWS
-#include <winsock.h>
-#else
-#include <netinet/in.h>
-#endif
-
-#define IDI_APP_ICON 1
-#define IDI_APP48_ICON 2
- 
 #define CONFIG_WEBSERVER_PORT 80
 #define CONFIG_DNSSERVER_PORT 53
 
