@@ -1,1 +1,1 @@
-#define CONFIG_CRYPTPW 1
+#undef CONFIG_CRYPTPW

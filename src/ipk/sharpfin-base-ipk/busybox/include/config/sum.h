@@ -1,1 +1,1 @@
-#define CONFIG_SUM 1
+#undef CONFIG_SUM

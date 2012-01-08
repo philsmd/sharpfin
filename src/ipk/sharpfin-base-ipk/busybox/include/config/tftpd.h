@@ -1,1 +1,1 @@
-#define CONFIG_TFTPD 1
+#undef CONFIG_TFTPD

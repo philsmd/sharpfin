@@ -1,1 +1,1 @@
-#define CONFIG_MKFS_MINIX 1
+#undef CONFIG_MKFS_MINIX

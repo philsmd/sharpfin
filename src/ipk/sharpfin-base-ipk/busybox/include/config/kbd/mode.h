@@ -1,1 +1,1 @@
-#define CONFIG_KBD_MODE 1
+#undef CONFIG_KBD_MODE

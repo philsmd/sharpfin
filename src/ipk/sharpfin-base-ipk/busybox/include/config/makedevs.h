@@ -1,1 +1,1 @@
-#define CONFIG_MAKEDEVS 1
+#undef CONFIG_MAKEDEVS

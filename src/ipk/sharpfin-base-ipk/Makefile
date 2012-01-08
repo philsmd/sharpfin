@@ -29,12 +29,13 @@ all: nanddump/files/usr/sbin/nanddump files/bin/sharpfin
 clean:
 	/bin/rm -f files/bin/sharpfin files/usr/sbin/nanddump *.ipk
 	(cd nanddump; make clean)
+	(cd busybox; make clean)
 
 files/bin/sharpfin: busybox/busybox
 	cp busybox/busybox files/bin/sharpfin
 
 busybox/busybox:
-	cd busybox; make CROSS_COMPILE=$(CROSS) ARCH=arm
+	cd busybox; make CROSS_COMPILE=$(CROSS) ARCH=arm; make CROSS_COMPILE=$(CROSS) ARCH=arm install
 
 nanddump/files/usr/sbin/nanddump:
 	cd nanddump; make CROSS_COMPILE=$(CROSS) ARCH=arm

@@ -1,1 +1,1 @@
-#define CONFIG_IPADDR 1
+#undef CONFIG_IPADDR

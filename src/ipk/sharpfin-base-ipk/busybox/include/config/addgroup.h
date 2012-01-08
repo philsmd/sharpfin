@@ -1,1 +1,1 @@
-#define CONFIG_ADDGROUP 1
+#undef CONFIG_ADDGROUP

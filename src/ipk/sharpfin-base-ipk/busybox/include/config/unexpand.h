@@ -1,1 +1,1 @@
-#define CONFIG_UNEXPAND 1
+#undef CONFIG_UNEXPAND

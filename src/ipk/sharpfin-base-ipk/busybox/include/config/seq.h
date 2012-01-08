@@ -1,1 +1,1 @@
-#define CONFIG_SEQ 1
+#undef CONFIG_SEQ

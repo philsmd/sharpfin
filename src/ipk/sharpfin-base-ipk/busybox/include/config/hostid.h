@@ -1,1 +1,1 @@
-#define CONFIG_HOSTID 1
+#undef CONFIG_HOSTID

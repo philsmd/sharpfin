@@ -1,1 +1,1 @@
-#define CONFIG_TASKSET 1
+#undef CONFIG_TASKSET

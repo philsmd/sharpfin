@@ -1,1 +1,1 @@
-#define CONFIG_IPRULE 1
+#undef CONFIG_IPRULE

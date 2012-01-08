@@ -1,1 +1,1 @@
-#define CONFIG_KILLALL5 1
+#undef CONFIG_KILLALL5
