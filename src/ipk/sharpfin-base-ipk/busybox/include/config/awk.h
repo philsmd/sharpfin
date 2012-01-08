@@ -1,1 +1,1 @@
-#undef CONFIG_AWK
+#define CONFIG_AWK 1

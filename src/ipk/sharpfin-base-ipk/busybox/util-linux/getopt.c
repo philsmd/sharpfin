@@ -22,7 +22,7 @@
  * Version 1.0.6: Tue Jun 27 2000
  *   No important changes
  * Version 1.1.0: Tue Jun 30 2000
- *   Added NLS support (partly written by Arkadiusz Mi<B6>kiewicz
+ *   Added NLS support (partly written by Arkadiusz Mickiewicz
  *     <misiek@misiek.eu.org>)
  * Ported to Busybox - Alfred M. Szmidt <ams@trillian.itslinux.org>
  *  Removed --version/-V and --help/-h in
@@ -155,7 +155,14 @@ static int generate_output(char **argv, int argc, const char *optstr, const stru
 
 	if (quiet_errors) /* No error reporting from getopt(3) */
 		opterr = 0;
-	optind = 0; /* Reset getopt(3) */
+
+	/* Reset getopt(3) (see libbb/getopt32.c for long rant) */
+#ifdef __GLIBC__
+        optind = 0;
+#else /* BSD style */
+        optind = 1;
+        /* optreset = 1; */
+#endif
 
 	while (1) {
 		opt =
@@ -195,7 +202,7 @@ static int generate_output(char **argv, int argc, const char *optstr, const stru
 		printf(" --");
 		while (optind < argc)
 			printf(" %s", normalize(argv[optind++]));
-		puts("");
+		bb_putchar('\n');
 	}
 	return exit_code;
 }
@@ -279,8 +286,8 @@ static const char getopt_longopts[] ALIGN1 =
 	;
 #endif
 
-int getopt_main(int argc, char *argv[]);
-int getopt_main(int argc, char *argv[])
+int getopt_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int getopt_main(int argc, char **argv)
 {
 	char *optstr = NULL;
 	char *name = NULL;

@@ -92,7 +92,7 @@ void bb_debug_dump_packet(unsigned char *outpack, int pktsize)
 	printf("packet dump:\n");
 	for (i = 0; i < pktsize; ++i) {
 		printf("%2.2x ", outpack[i]);
-		if (i % 20 == 19) puts("");
+		if (i % 20 == 19) bb_putchar('\n');
 	}
 	printf("\n\n");
 }
@@ -178,8 +178,8 @@ static int get_wol_pw(const char *ethoptarg, unsigned char *wol_passwd)
 	return byte_cnt;
 }
 
-int ether_wake_main(int argc, char **argv);
-int ether_wake_main(int argc, char **argv)
+int ether_wake_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int ether_wake_main(int argc ATTRIBUTE_UNUSED, char **argv)
 {
 	const char *ifname = "eth0";
 	char *pass;

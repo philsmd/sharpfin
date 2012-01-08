@@ -127,264 +127,512 @@ enum {
 	control, input, output, local, combination
 };
 
-static const char evenp     [] ALIGN1 = "evenp";
-static const char raw       [] ALIGN1 = "raw";
-static const char stty_min  [] ALIGN1 = "min";
-static const char stty_time [] ALIGN1 = "time";
-static const char stty_swtch[] ALIGN1 = "swtch";
-static const char stty_eol  [] ALIGN1 = "eol";
-static const char stty_eof  [] ALIGN1 = "eof";
-static const char parity    [] ALIGN1 = "parity";
-static const char stty_oddp [] ALIGN1 = "oddp";
-static const char stty_nl   [] ALIGN1 = "nl";
-static const char stty_ek   [] ALIGN1 = "ek";
-static const char stty_sane [] ALIGN1 = "sane";
-static const char cbreak    [] ALIGN1 = "cbreak";
-static const char stty_pass8[] ALIGN1 = "pass8";
-static const char litout    [] ALIGN1 = "litout";
-static const char cooked    [] ALIGN1 = "cooked";
-static const char decctlq   [] ALIGN1 = "decctlq";
-static const char stty_tabs [] ALIGN1 = "tabs";
-static const char stty_lcase[] ALIGN1 = "lcase";
-static const char stty_LCASE[] ALIGN1 = "LCASE";
-static const char stty_crt  [] ALIGN1 = "crt";
-static const char stty_dec  [] ALIGN1 = "dec";
-
 /* Flags for 'struct mode_info' */
 #define SANE_SET 1              /* Set in 'sane' mode                  */
 #define SANE_UNSET 2            /* Unset in 'sane' mode                */
 #define REV 4                   /* Can be turned off by prepending '-' */
 #define OMIT 8                  /* Don't display value                 */
 
-/* Each mode */
+
+/* Each mode.
+ * This structure should be kept as small as humanly possible.
+ */
 struct mode_info {
-	const char *const name;      /* Name given on command line           */
-	const unsigned char type;     /* Which structure element to change    */
-	const unsigned char flags;    /* Setting and display options          */
-	/* were using short here, but ppc32 was unhappy: */
+	const uint8_t type;           /* Which structure element to change    */
+	const uint8_t flags;          /* Setting and display options          */
+	/* only these values are ever used, so... */
+#if   (CSIZE | NLDLY | CRDLY | TABDLY | BSDLY | VTDLY | FFDLY) < 0x100
+	const uint8_t mask;
+#elif (CSIZE | NLDLY | CRDLY | TABDLY | BSDLY | VTDLY | FFDLY) < 0x10000
+	const uint16_t mask;
+#else
 	const tcflag_t mask;          /* Other bits to turn off for this mode */
+#endif
+	/* was using short here, but ppc32 was unhappy */
 	const tcflag_t bits;          /* Bits to set for this mode            */
 };
 
-/* We can optimize it further by using name[8] instead of char *name */
-/* but beware of "if (info->name == evenp)" checks! */
-/* Need to replace them with "if (info == &mode_info[EVENP_INDX])" */
-
-#define MI_ENTRY(N,T,F,B,M) { N, T, F, M, B }
-
-static const struct mode_info mode_info[] = {
-	MI_ENTRY("parenb",   control,     REV,               PARENB,     0 ),
-	MI_ENTRY("parodd",   control,     REV,               PARODD,     0 ),
-	MI_ENTRY("cs5",      control,     0,                 CS5,     CSIZE),
-	MI_ENTRY("cs6",      control,     0,                 CS6,     CSIZE),
-	MI_ENTRY("cs7",      control,     0,                 CS7,     CSIZE),
-	MI_ENTRY("cs8",      control,     0,                 CS8,     CSIZE),
-	MI_ENTRY("hupcl",    control,     REV,               HUPCL,      0 ),
-	MI_ENTRY("hup",      control,     REV        | OMIT, HUPCL,      0 ),
-	MI_ENTRY("cstopb",   control,     REV,               CSTOPB,     0 ),
-	MI_ENTRY("cread",    control,     SANE_SET   | REV,  CREAD,      0 ),
-	MI_ENTRY("clocal",   control,     REV,               CLOCAL,     0 ),
-#ifdef CRTSCTS
-	MI_ENTRY("crtscts",  control,     REV,               CRTSCTS,    0 ),
+enum {
+	/* Must match mode_name[] and mode_info[] order! */
+	IDX_evenp = 0,
+	IDX_parity,
+	IDX_oddp,
+	IDX_nl,
+	IDX_ek,
+	IDX_sane,
+	IDX_cooked,
+	IDX_raw,
+	IDX_pass8,
+	IDX_litout,
+	IDX_cbreak,
+	IDX_crt,
+	IDX_dec,
+#ifdef IXANY
+	IDX_decctlq,
 #endif
-	MI_ENTRY("ignbrk",   input,       SANE_UNSET | REV,  IGNBRK,     0 ),
-	MI_ENTRY("brkint",   input,       SANE_SET   | REV,  BRKINT,     0 ),
-	MI_ENTRY("ignpar",   input,       REV,               IGNPAR,     0 ),
-	MI_ENTRY("parmrk",   input,       REV,               PARMRK,     0 ),
-	MI_ENTRY("inpck",    input,       REV,               INPCK,      0 ),
-	MI_ENTRY("istrip",   input,       REV,               ISTRIP,     0 ),
-	MI_ENTRY("inlcr",    input,       SANE_UNSET | REV,  INLCR,      0 ),
-	MI_ENTRY("igncr",    input,       SANE_UNSET | REV,  IGNCR,      0 ),
-	MI_ENTRY("icrnl",    input,       SANE_SET   | REV,  ICRNL,      0 ),
-	MI_ENTRY("ixon",     input,       REV,               IXON,       0 ),
-	MI_ENTRY("ixoff",    input,       SANE_UNSET | REV,  IXOFF,      0 ),
-	MI_ENTRY("tandem",   input,       REV        | OMIT, IXOFF,      0 ),
+#if defined(TABDLY) || defined(OXTABS)
+	IDX_tabs,
+#endif
+#if defined(XCASE) && defined(IUCLC) && defined(OLCUC)
+	IDX_lcase,
+	IDX_LCASE,
+#endif
+};
+
+#define MI_ENTRY(N,T,F,B,M) N "\0"
+
+/* Mode names given on command line */
+static const char mode_name[] =
+	MI_ENTRY("evenp",    combination, REV        | OMIT, 0,          0 )
+	MI_ENTRY("parity",   combination, REV        | OMIT, 0,          0 )
+	MI_ENTRY("oddp",     combination, REV        | OMIT, 0,          0 )
+	MI_ENTRY("nl",       combination, REV        | OMIT, 0,          0 )
+	MI_ENTRY("ek",       combination, OMIT,              0,          0 )
+	MI_ENTRY("sane",     combination, OMIT,              0,          0 )
+	MI_ENTRY("cooked",   combination, REV        | OMIT, 0,          0 )
+	MI_ENTRY("raw",      combination, REV        | OMIT, 0,          0 )
+	MI_ENTRY("pass8",    combination, REV        | OMIT, 0,          0 )
+	MI_ENTRY("litout",   combination, REV        | OMIT, 0,          0 )
+	MI_ENTRY("cbreak",   combination, REV        | OMIT, 0,          0 )
+	MI_ENTRY("crt",      combination, OMIT,              0,          0 )
+	MI_ENTRY("dec",      combination, OMIT,              0,          0 )
+#ifdef IXANY
+	MI_ENTRY("decctlq",  combination, REV        | OMIT, 0,          0 )
+#endif
+#if defined(TABDLY) || defined(OXTABS)
+	MI_ENTRY("tabs",     combination, REV        | OMIT, 0,          0 )
+#endif
+#if defined(XCASE) && defined(IUCLC) && defined(OLCUC)
+	MI_ENTRY("lcase",    combination, REV        | OMIT, 0,          0 )
+	MI_ENTRY("LCASE",    combination, REV        | OMIT, 0,          0 )
+#endif
+	MI_ENTRY("parenb",   control,     REV,               PARENB,     0 )
+	MI_ENTRY("parodd",   control,     REV,               PARODD,     0 )
+	MI_ENTRY("cs5",      control,     0,                 CS5,     CSIZE)
+	MI_ENTRY("cs6",      control,     0,                 CS6,     CSIZE)
+	MI_ENTRY("cs7",      control,     0,                 CS7,     CSIZE)
+	MI_ENTRY("cs8",      control,     0,                 CS8,     CSIZE)
+	MI_ENTRY("hupcl",    control,     REV,               HUPCL,      0 )
+	MI_ENTRY("hup",      control,     REV        | OMIT, HUPCL,      0 )
+	MI_ENTRY("cstopb",   control,     REV,               CSTOPB,     0 )
+	MI_ENTRY("cread",    control,     SANE_SET   | REV,  CREAD,      0 )
+	MI_ENTRY("clocal",   control,     REV,               CLOCAL,     0 )
+#ifdef CRTSCTS
+	MI_ENTRY("crtscts",  control,     REV,               CRTSCTS,    0 )
+#endif
+	MI_ENTRY("ignbrk",   input,       SANE_UNSET | REV,  IGNBRK,     0 )
+	MI_ENTRY("brkint",   input,       SANE_SET   | REV,  BRKINT,     0 )
+	MI_ENTRY("ignpar",   input,       REV,               IGNPAR,     0 )
+	MI_ENTRY("parmrk",   input,       REV,               PARMRK,     0 )
+	MI_ENTRY("inpck",    input,       REV,               INPCK,      0 )
+	MI_ENTRY("istrip",   input,       REV,               ISTRIP,     0 )
+	MI_ENTRY("inlcr",    input,       SANE_UNSET | REV,  INLCR,      0 )
+	MI_ENTRY("igncr",    input,       SANE_UNSET | REV,  IGNCR,      0 )
+	MI_ENTRY("icrnl",    input,       SANE_SET   | REV,  ICRNL,      0 )
+	MI_ENTRY("ixon",     input,       REV,               IXON,       0 )
+	MI_ENTRY("ixoff",    input,       SANE_UNSET | REV,  IXOFF,      0 )
+	MI_ENTRY("tandem",   input,       REV        | OMIT, IXOFF,      0 )
 #ifdef IUCLC
-	MI_ENTRY("iuclc",    input,       SANE_UNSET | REV,  IUCLC,      0 ),
+	MI_ENTRY("iuclc",    input,       SANE_UNSET | REV,  IUCLC,      0 )
 #endif
 #ifdef IXANY
-	MI_ENTRY("ixany",    input,       SANE_UNSET | REV,  IXANY,      0 ),
+	MI_ENTRY("ixany",    input,       SANE_UNSET | REV,  IXANY,      0 )
 #endif
 #ifdef IMAXBEL
-	MI_ENTRY("imaxbel",  input,       SANE_SET   | REV,  IMAXBEL,    0 ),
+	MI_ENTRY("imaxbel",  input,       SANE_SET   | REV,  IMAXBEL,    0 )
 #endif
-	MI_ENTRY("opost",    output,      SANE_SET   | REV,  OPOST,      0 ),
+	MI_ENTRY("opost",    output,      SANE_SET   | REV,  OPOST,      0 )
 #ifdef OLCUC
-	MI_ENTRY("olcuc",    output,      SANE_UNSET | REV,  OLCUC,      0 ),
+	MI_ENTRY("olcuc",    output,      SANE_UNSET | REV,  OLCUC,      0 )
 #endif
 #ifdef OCRNL
-	MI_ENTRY("ocrnl",    output,      SANE_UNSET | REV,  OCRNL,      0 ),
+	MI_ENTRY("ocrnl",    output,      SANE_UNSET | REV,  OCRNL,      0 )
 #endif
 #ifdef ONLCR
-	MI_ENTRY("onlcr",    output,      SANE_SET   | REV,  ONLCR,      0 ),
+	MI_ENTRY("onlcr",    output,      SANE_SET   | REV,  ONLCR,      0 )
 #endif
 #ifdef ONOCR
-	MI_ENTRY("onocr",    output,      SANE_UNSET | REV,  ONOCR,      0 ),
+	MI_ENTRY("onocr",    output,      SANE_UNSET | REV,  ONOCR,      0 )
 #endif
 #ifdef ONLRET
-	MI_ENTRY("onlret",   output,      SANE_UNSET | REV,  ONLRET,     0 ),
+	MI_ENTRY("onlret",   output,      SANE_UNSET | REV,  ONLRET,     0 )
 #endif
 #ifdef OFILL
-	MI_ENTRY("ofill",    output,      SANE_UNSET | REV,  OFILL,      0 ),
+	MI_ENTRY("ofill",    output,      SANE_UNSET | REV,  OFILL,      0 )
 #endif
 #ifdef OFDEL
-	MI_ENTRY("ofdel",    output,      SANE_UNSET | REV,  OFDEL,      0 ),
+	MI_ENTRY("ofdel",    output,      SANE_UNSET | REV,  OFDEL,      0 )
 #endif
 #ifdef NLDLY
-	MI_ENTRY("nl1",      output,      SANE_UNSET,        NL1,     NLDLY),
-	MI_ENTRY("nl0",      output,      SANE_SET,          NL0,     NLDLY),
+	MI_ENTRY("nl1",      output,      SANE_UNSET,        NL1,     NLDLY)
+	MI_ENTRY("nl0",      output,      SANE_SET,          NL0,     NLDLY)
 #endif
 #ifdef CRDLY
-	MI_ENTRY("cr3",      output,      SANE_UNSET,        CR3,     CRDLY),
-	MI_ENTRY("cr2",      output,      SANE_UNSET,        CR2,     CRDLY),
-	MI_ENTRY("cr1",      output,      SANE_UNSET,        CR1,     CRDLY),
-	MI_ENTRY("cr0",      output,      SANE_SET,          CR0,     CRDLY),
+	MI_ENTRY("cr3",      output,      SANE_UNSET,        CR3,     CRDLY)
+	MI_ENTRY("cr2",      output,      SANE_UNSET,        CR2,     CRDLY)
+	MI_ENTRY("cr1",      output,      SANE_UNSET,        CR1,     CRDLY)
+	MI_ENTRY("cr0",      output,      SANE_SET,          CR0,     CRDLY)
 #endif
 
 #ifdef TABDLY
-	MI_ENTRY("tab3",     output,      SANE_UNSET,        TAB3,   TABDLY),
-	MI_ENTRY("tab2",     output,      SANE_UNSET,        TAB2,   TABDLY),
-	MI_ENTRY("tab1",     output,      SANE_UNSET,        TAB1,   TABDLY),
-	MI_ENTRY("tab0",     output,      SANE_SET,          TAB0,   TABDLY),
+	MI_ENTRY("tab3",     output,      SANE_UNSET,        TAB3,   TABDLY)
+	MI_ENTRY("tab2",     output,      SANE_UNSET,        TAB2,   TABDLY)
+	MI_ENTRY("tab1",     output,      SANE_UNSET,        TAB1,   TABDLY)
+	MI_ENTRY("tab0",     output,      SANE_SET,          TAB0,   TABDLY)
 #else
 # ifdef OXTABS
-	MI_ENTRY("tab3",     output,      SANE_UNSET,        OXTABS,     0 ),
+	MI_ENTRY("tab3",     output,      SANE_UNSET,        OXTABS,     0 )
 # endif
 #endif
 
 #ifdef BSDLY
-	MI_ENTRY("bs1",      output,      SANE_UNSET,        BS1,     BSDLY),
-	MI_ENTRY("bs0",      output,      SANE_SET,          BS0,     BSDLY),
+	MI_ENTRY("bs1",      output,      SANE_UNSET,        BS1,     BSDLY)
+	MI_ENTRY("bs0",      output,      SANE_SET,          BS0,     BSDLY)
 #endif
 #ifdef VTDLY
-	MI_ENTRY("vt1",      output,      SANE_UNSET,        VT1,     VTDLY),
-	MI_ENTRY("vt0",      output,      SANE_SET,          VT0,     VTDLY),
+	MI_ENTRY("vt1",      output,      SANE_UNSET,        VT1,     VTDLY)
+	MI_ENTRY("vt0",      output,      SANE_SET,          VT0,     VTDLY)
 #endif
 #ifdef FFDLY
-	MI_ENTRY("ff1",      output,      SANE_UNSET,        FF1,     FFDLY),
-	MI_ENTRY("ff0",      output,      SANE_SET,          FF0,     FFDLY),
+	MI_ENTRY("ff1",      output,      SANE_UNSET,        FF1,     FFDLY)
+	MI_ENTRY("ff0",      output,      SANE_SET,          FF0,     FFDLY)
 #endif
-	MI_ENTRY("isig",     local,       SANE_SET   | REV,  ISIG,       0 ),
-	MI_ENTRY("icanon",   local,       SANE_SET   | REV,  ICANON,     0 ),
+	MI_ENTRY("isig",     local,       SANE_SET   | REV,  ISIG,       0 )
+	MI_ENTRY("icanon",   local,       SANE_SET   | REV,  ICANON,     0 )
 #ifdef IEXTEN
-	MI_ENTRY("iexten",   local,       SANE_SET   | REV,  IEXTEN,     0 ),
+	MI_ENTRY("iexten",   local,       SANE_SET   | REV,  IEXTEN,     0 )
 #endif
-	MI_ENTRY("echo",     local,       SANE_SET   | REV,  ECHO,       0 ),
-	MI_ENTRY("echoe",    local,       SANE_SET   | REV,  ECHOE,      0 ),
-	MI_ENTRY("crterase", local,       REV        | OMIT, ECHOE,      0 ),
-	MI_ENTRY("echok",    local,       SANE_SET   | REV,  ECHOK,      0 ),
-	MI_ENTRY("echonl",   local,       SANE_UNSET | REV,  ECHONL,     0 ),
-	MI_ENTRY("noflsh",   local,       SANE_UNSET | REV,  NOFLSH,     0 ),
+	MI_ENTRY("echo",     local,       SANE_SET   | REV,  ECHO,       0 )
+	MI_ENTRY("echoe",    local,       SANE_SET   | REV,  ECHOE,      0 )
+	MI_ENTRY("crterase", local,       REV        | OMIT, ECHOE,      0 )
+	MI_ENTRY("echok",    local,       SANE_SET   | REV,  ECHOK,      0 )
+	MI_ENTRY("echonl",   local,       SANE_UNSET | REV,  ECHONL,     0 )
+	MI_ENTRY("noflsh",   local,       SANE_UNSET | REV,  NOFLSH,     0 )
 #ifdef XCASE
-	MI_ENTRY("xcase",    local,       SANE_UNSET | REV,  XCASE,      0 ),
+	MI_ENTRY("xcase",    local,       SANE_UNSET | REV,  XCASE,      0 )
 #endif
 #ifdef TOSTOP
-	MI_ENTRY("tostop",   local,       SANE_UNSET | REV,  TOSTOP,     0 ),
+	MI_ENTRY("tostop",   local,       SANE_UNSET | REV,  TOSTOP,     0 )
 #endif
 #ifdef ECHOPRT
-	MI_ENTRY("echoprt",  local,       SANE_UNSET | REV,  ECHOPRT,    0 ),
-	MI_ENTRY("prterase", local,       REV | OMIT,        ECHOPRT,    0 ),
+	MI_ENTRY("echoprt",  local,       SANE_UNSET | REV,  ECHOPRT,    0 )
+	MI_ENTRY("prterase", local,       REV | OMIT,        ECHOPRT,    0 )
 #endif
 #ifdef ECHOCTL
-	MI_ENTRY("echoctl",  local,       SANE_SET   | REV,  ECHOCTL,    0 ),
-	MI_ENTRY("ctlecho",  local,       REV        | OMIT, ECHOCTL,    0 ),
+	MI_ENTRY("echoctl",  local,       SANE_SET   | REV,  ECHOCTL,    0 )
+	MI_ENTRY("ctlecho",  local,       REV        | OMIT, ECHOCTL,    0 )
 #endif
 #ifdef ECHOKE
-	MI_ENTRY("echoke",   local,       SANE_SET   | REV,  ECHOKE,     0 ),
-	MI_ENTRY("crtkill",  local,       REV        | OMIT, ECHOKE,     0 ),
+	MI_ENTRY("echoke",   local,       SANE_SET   | REV,  ECHOKE,     0 )
+	MI_ENTRY("crtkill",  local,       REV        | OMIT, ECHOKE,     0 )
 #endif
-	MI_ENTRY(evenp,      combination, REV        | OMIT, 0,          0 ),
-	MI_ENTRY(parity,     combination, REV        | OMIT, 0,          0 ),
-	MI_ENTRY(stty_oddp,  combination, REV        | OMIT, 0,          0 ),
-	MI_ENTRY(stty_nl,    combination, REV        | OMIT, 0,          0 ),
-	MI_ENTRY(stty_ek,    combination, OMIT,              0,          0 ),
-	MI_ENTRY(stty_sane,  combination, OMIT,              0,          0 ),
-	MI_ENTRY(cooked,     combination, REV        | OMIT, 0,          0 ),
-	MI_ENTRY(raw,        combination, REV        | OMIT, 0,          0 ),
-	MI_ENTRY(stty_pass8, combination, REV        | OMIT, 0,          0 ),
-	MI_ENTRY(litout,     combination, REV        | OMIT, 0,          0 ),
-	MI_ENTRY(cbreak,     combination, REV        | OMIT, 0,          0 ),
+	;
+
+#undef MI_ENTRY
+#define MI_ENTRY(N,T,F,B,M) { T, F, M, B },
+
+static const struct mode_info mode_info[] = {
+	/* This should be verbatim cut-n-paste copy of the above MI_ENTRYs */
+	MI_ENTRY("evenp",    combination, REV        | OMIT, 0,          0 )
+	MI_ENTRY("parity",   combination, REV        | OMIT, 0,          0 )
+	MI_ENTRY("oddp",     combination, REV        | OMIT, 0,          0 )
+	MI_ENTRY("nl",       combination, REV        | OMIT, 0,          0 )
+	MI_ENTRY("ek",       combination, OMIT,              0,          0 )
+	MI_ENTRY("sane",     combination, OMIT,              0,          0 )
+	MI_ENTRY("cooked",   combination, REV        | OMIT, 0,          0 )
+	MI_ENTRY("raw",      combination, REV        | OMIT, 0,          0 )
+	MI_ENTRY("pass8",    combination, REV        | OMIT, 0,          0 )
+	MI_ENTRY("litout",   combination, REV        | OMIT, 0,          0 )
+	MI_ENTRY("cbreak",   combination, REV        | OMIT, 0,          0 )
+	MI_ENTRY("crt",      combination, OMIT,              0,          0 )
+	MI_ENTRY("dec",      combination, OMIT,              0,          0 )
 #ifdef IXANY
-	MI_ENTRY(decctlq,    combination, REV        | OMIT, 0,          0 ),
+	MI_ENTRY("decctlq",  combination, REV        | OMIT, 0,          0 )
 #endif
 #if defined(TABDLY) || defined(OXTABS)
-	MI_ENTRY(stty_tabs,  combination, REV        | OMIT, 0,          0 ),
+	MI_ENTRY("tabs",     combination, REV        | OMIT, 0,          0 )
 #endif
 #if defined(XCASE) && defined(IUCLC) && defined(OLCUC)
-	MI_ENTRY(stty_lcase, combination, REV        | OMIT, 0,          0 ),
-	MI_ENTRY(stty_LCASE, combination, REV        | OMIT, 0,          0 ),
+	MI_ENTRY("lcase",    combination, REV        | OMIT, 0,          0 )
+	MI_ENTRY("LCASE",    combination, REV        | OMIT, 0,          0 )
 #endif
-	MI_ENTRY(stty_crt,   combination, OMIT,              0,          0 ),
-	MI_ENTRY(stty_dec,   combination, OMIT,              0,          0 ),
+	MI_ENTRY("parenb",   control,     REV,               PARENB,     0 )
+	MI_ENTRY("parodd",   control,     REV,               PARODD,     0 )
+	MI_ENTRY("cs5",      control,     0,                 CS5,     CSIZE)
+	MI_ENTRY("cs6",      control,     0,                 CS6,     CSIZE)
+	MI_ENTRY("cs7",      control,     0,                 CS7,     CSIZE)
+	MI_ENTRY("cs8",      control,     0,                 CS8,     CSIZE)
+	MI_ENTRY("hupcl",    control,     REV,               HUPCL,      0 )
+	MI_ENTRY("hup",      control,     REV        | OMIT, HUPCL,      0 )
+	MI_ENTRY("cstopb",   control,     REV,               CSTOPB,     0 )
+	MI_ENTRY("cread",    control,     SANE_SET   | REV,  CREAD,      0 )
+	MI_ENTRY("clocal",   control,     REV,               CLOCAL,     0 )
+#ifdef CRTSCTS
+	MI_ENTRY("crtscts",  control,     REV,               CRTSCTS,    0 )
+#endif
+	MI_ENTRY("ignbrk",   input,       SANE_UNSET | REV,  IGNBRK,     0 )
+	MI_ENTRY("brkint",   input,       SANE_SET   | REV,  BRKINT,     0 )
+	MI_ENTRY("ignpar",   input,       REV,               IGNPAR,     0 )
+	MI_ENTRY("parmrk",   input,       REV,               PARMRK,     0 )
+	MI_ENTRY("inpck",    input,       REV,               INPCK,      0 )
+	MI_ENTRY("istrip",   input,       REV,               ISTRIP,     0 )
+	MI_ENTRY("inlcr",    input,       SANE_UNSET | REV,  INLCR,      0 )
+	MI_ENTRY("igncr",    input,       SANE_UNSET | REV,  IGNCR,      0 )
+	MI_ENTRY("icrnl",    input,       SANE_SET   | REV,  ICRNL,      0 )
+	MI_ENTRY("ixon",     input,       REV,               IXON,       0 )
+	MI_ENTRY("ixoff",    input,       SANE_UNSET | REV,  IXOFF,      0 )
+	MI_ENTRY("tandem",   input,       REV        | OMIT, IXOFF,      0 )
+#ifdef IUCLC
+	MI_ENTRY("iuclc",    input,       SANE_UNSET | REV,  IUCLC,      0 )
+#endif
+#ifdef IXANY
+	MI_ENTRY("ixany",    input,       SANE_UNSET | REV,  IXANY,      0 )
+#endif
+#ifdef IMAXBEL
+	MI_ENTRY("imaxbel",  input,       SANE_SET   | REV,  IMAXBEL,    0 )
+#endif
+	MI_ENTRY("opost",    output,      SANE_SET   | REV,  OPOST,      0 )
+#ifdef OLCUC
+	MI_ENTRY("olcuc",    output,      SANE_UNSET | REV,  OLCUC,      0 )
+#endif
+#ifdef OCRNL
+	MI_ENTRY("ocrnl",    output,      SANE_UNSET | REV,  OCRNL,      0 )
+#endif
+#ifdef ONLCR
+	MI_ENTRY("onlcr",    output,      SANE_SET   | REV,  ONLCR,      0 )
+#endif
+#ifdef ONOCR
+	MI_ENTRY("onocr",    output,      SANE_UNSET | REV,  ONOCR,      0 )
+#endif
+#ifdef ONLRET
+	MI_ENTRY("onlret",   output,      SANE_UNSET | REV,  ONLRET,     0 )
+#endif
+#ifdef OFILL
+	MI_ENTRY("ofill",    output,      SANE_UNSET | REV,  OFILL,      0 )
+#endif
+#ifdef OFDEL
+	MI_ENTRY("ofdel",    output,      SANE_UNSET | REV,  OFDEL,      0 )
+#endif
+#ifdef NLDLY
+	MI_ENTRY("nl1",      output,      SANE_UNSET,        NL1,     NLDLY)
+	MI_ENTRY("nl0",      output,      SANE_SET,          NL0,     NLDLY)
+#endif
+#ifdef CRDLY
+	MI_ENTRY("cr3",      output,      SANE_UNSET,        CR3,     CRDLY)
+	MI_ENTRY("cr2",      output,      SANE_UNSET,        CR2,     CRDLY)
+	MI_ENTRY("cr1",      output,      SANE_UNSET,        CR1,     CRDLY)
+	MI_ENTRY("cr0",      output,      SANE_SET,          CR0,     CRDLY)
+#endif
+
+#ifdef TABDLY
+	MI_ENTRY("tab3",     output,      SANE_UNSET,        TAB3,   TABDLY)
+	MI_ENTRY("tab2",     output,      SANE_UNSET,        TAB2,   TABDLY)
+	MI_ENTRY("tab1",     output,      SANE_UNSET,        TAB1,   TABDLY)
+	MI_ENTRY("tab0",     output,      SANE_SET,          TAB0,   TABDLY)
+#else
+# ifdef OXTABS
+	MI_ENTRY("tab3",     output,      SANE_UNSET,        OXTABS,     0 )
+# endif
+#endif
+
+#ifdef BSDLY
+	MI_ENTRY("bs1",      output,      SANE_UNSET,        BS1,     BSDLY)
+	MI_ENTRY("bs0",      output,      SANE_SET,          BS0,     BSDLY)
+#endif
+#ifdef VTDLY
+	MI_ENTRY("vt1",      output,      SANE_UNSET,        VT1,     VTDLY)
+	MI_ENTRY("vt0",      output,      SANE_SET,          VT0,     VTDLY)
+#endif
+#ifdef FFDLY
+	MI_ENTRY("ff1",      output,      SANE_UNSET,        FF1,     FFDLY)
+	MI_ENTRY("ff0",      output,      SANE_SET,          FF0,     FFDLY)
+#endif
+	MI_ENTRY("isig",     local,       SANE_SET   | REV,  ISIG,       0 )
+	MI_ENTRY("icanon",   local,       SANE_SET   | REV,  ICANON,     0 )
+#ifdef IEXTEN
+	MI_ENTRY("iexten",   local,       SANE_SET   | REV,  IEXTEN,     0 )
+#endif
+	MI_ENTRY("echo",     local,       SANE_SET   | REV,  ECHO,       0 )
+	MI_ENTRY("echoe",    local,       SANE_SET   | REV,  ECHOE,      0 )
+	MI_ENTRY("crterase", local,       REV        | OMIT, ECHOE,      0 )
+	MI_ENTRY("echok",    local,       SANE_SET   | REV,  ECHOK,      0 )
+	MI_ENTRY("echonl",   local,       SANE_UNSET | REV,  ECHONL,     0 )
+	MI_ENTRY("noflsh",   local,       SANE_UNSET | REV,  NOFLSH,     0 )
+#ifdef XCASE
+	MI_ENTRY("xcase",    local,       SANE_UNSET | REV,  XCASE,      0 )
+#endif
+#ifdef TOSTOP
+	MI_ENTRY("tostop",   local,       SANE_UNSET | REV,  TOSTOP,     0 )
+#endif
+#ifdef ECHOPRT
+	MI_ENTRY("echoprt",  local,       SANE_UNSET | REV,  ECHOPRT,    0 )
+	MI_ENTRY("prterase", local,       REV | OMIT,        ECHOPRT,    0 )
+#endif
+#ifdef ECHOCTL
+	MI_ENTRY("echoctl",  local,       SANE_SET   | REV,  ECHOCTL,    0 )
+	MI_ENTRY("ctlecho",  local,       REV        | OMIT, ECHOCTL,    0 )
+#endif
+#ifdef ECHOKE
+	MI_ENTRY("echoke",   local,       SANE_SET   | REV,  ECHOKE,     0 )
+	MI_ENTRY("crtkill",  local,       REV        | OMIT, ECHOKE,     0 )
+#endif
 };
 
 enum {
 	NUM_mode_info = ARRAY_SIZE(mode_info)
 };
 
-/* Control character settings */
-struct control_info {
-	const char *const name;               /* Name given on command line */
-	const unsigned char saneval;          /* Value to set for 'stty sane' */
-	const unsigned char offset;           /* Offset in c_cc */
-};
 
 /* Control characters */
+struct control_info {
+	const uint8_t saneval;  /* Value to set for 'stty sane' */
+	const uint8_t offset;   /* Offset in c_cc */
+};
 
-static const struct control_info control_info[] = {
-	{"intr",     CINTR,   VINTR},
-	{"quit",     CQUIT,   VQUIT},
-	{"erase",    CERASE,  VERASE},
-	{"kill",     CKILL,   VKILL},
-	{stty_eof,   CEOF,    VEOF},
-	{stty_eol,   CEOL,    VEOL},
+enum {
+	/* Must match control_name[] and control_info[] order! */
+	CIDX_intr = 0,
+	CIDX_quit,
+	CIDX_erase,
+	CIDX_kill,
+	CIDX_eof,
+	CIDX_eol,
 #ifdef VEOL2
-	{"eol2",     CEOL2,   VEOL2},
+	CIDX_eol2,
 #endif
 #ifdef VSWTCH
-	{stty_swtch, CSWTCH,  VSWTCH},
+	CIDX_swtch,
 #endif
-	{"start",    CSTART,  VSTART},
-	{"stop",     CSTOP,   VSTOP},
-	{"susp",     CSUSP,   VSUSP},
+	CIDX_start,
+	CIDX_stop,
+	CIDX_susp,
 #ifdef VDSUSP
-	{"dsusp",    CDSUSP,  VDSUSP},
+	CIDX_dsusp,
 #endif
 #ifdef VREPRINT
-	{"rprnt",    CRPRNT,  VREPRINT},
+	CIDX_rprnt,
 #endif
 #ifdef VWERASE
-	{"werase",   CWERASE, VWERASE},
+	CIDX_werase,
 #endif
 #ifdef VLNEXT
-	{"lnext",    CLNEXT,  VLNEXT},
+	CIDX_lnext,
 #endif
 #ifdef VFLUSHO
-	{"flush",    CFLUSHO, VFLUSHO},
+	CIDX_flush,
 #endif
 #ifdef VSTATUS
-	{"status",   CSTATUS, VSTATUS},
+	CIDX_status,
+#endif
+	CIDX_min,
+	CIDX_time,
+};
+
+#define CI_ENTRY(n,s,o) n "\0"
+
+/* Name given on command line */
+static const char control_name[] =
+	CI_ENTRY("intr",     CINTR,   VINTR   )
+	CI_ENTRY("quit",     CQUIT,   VQUIT   )
+	CI_ENTRY("erase",    CERASE,  VERASE  )
+	CI_ENTRY("kill",     CKILL,   VKILL   )
+	CI_ENTRY("eof",      CEOF,    VEOF    )
+	CI_ENTRY("eol",      CEOL,    VEOL    )
+#ifdef VEOL2
+	CI_ENTRY("eol2",     CEOL2,   VEOL2   )
+#endif
+#ifdef VSWTCH
+	CI_ENTRY("swtch",    CSWTCH,  VSWTCH  )
+#endif
+	CI_ENTRY("start",    CSTART,  VSTART  )
+	CI_ENTRY("stop",     CSTOP,   VSTOP   )
+	CI_ENTRY("susp",     CSUSP,   VSUSP   )
+#ifdef VDSUSP
+	CI_ENTRY("dsusp",    CDSUSP,  VDSUSP  )
+#endif
+#ifdef VREPRINT
+	CI_ENTRY("rprnt",    CRPRNT,  VREPRINT)
+#endif
+#ifdef VWERASE
+	CI_ENTRY("werase",   CWERASE, VWERASE )
+#endif
+#ifdef VLNEXT
+	CI_ENTRY("lnext",    CLNEXT,  VLNEXT  )
+#endif
+#ifdef VFLUSHO
+	CI_ENTRY("flush",    CFLUSHO, VFLUSHO )
+#endif
+#ifdef VSTATUS
+	CI_ENTRY("status",   CSTATUS, VSTATUS )
 #endif
 	/* These must be last because of the display routines */
-	{stty_min,   1,       VMIN},
-	{stty_time,  0,       VTIME},
+	CI_ENTRY("min",      1,       VMIN    )
+	CI_ENTRY("time",     0,       VTIME   )
+	;
+
+#undef CI_ENTRY
+#define CI_ENTRY(n,s,o) { s, o },
+
+static const struct control_info control_info[] = {
+	/* This should be verbatim cut-n-paste copy of the above CI_ENTRYs */
+	CI_ENTRY("intr",     CINTR,   VINTR   )
+	CI_ENTRY("quit",     CQUIT,   VQUIT   )
+	CI_ENTRY("erase",    CERASE,  VERASE  )
+	CI_ENTRY("kill",     CKILL,   VKILL   )
+	CI_ENTRY("eof",      CEOF,    VEOF    )
+	CI_ENTRY("eol",      CEOL,    VEOL    )
+#ifdef VEOL2
+	CI_ENTRY("eol2",     CEOL2,   VEOL2   )
+#endif
+#ifdef VSWTCH
+	CI_ENTRY("swtch",    CSWTCH,  VSWTCH  )
+#endif
+	CI_ENTRY("start",    CSTART,  VSTART  )
+	CI_ENTRY("stop",     CSTOP,   VSTOP   )
+	CI_ENTRY("susp",     CSUSP,   VSUSP   )
+#ifdef VDSUSP
+	CI_ENTRY("dsusp",    CDSUSP,  VDSUSP  )
+#endif
+#ifdef VREPRINT
+	CI_ENTRY("rprnt",    CRPRNT,  VREPRINT)
+#endif
+#ifdef VWERASE
+	CI_ENTRY("werase",   CWERASE, VWERASE )
+#endif
+#ifdef VLNEXT
+	CI_ENTRY("lnext",    CLNEXT,  VLNEXT  )
+#endif
+#ifdef VFLUSHO
+	CI_ENTRY("flush",    CFLUSHO, VFLUSHO )
+#endif
+#ifdef VSTATUS
+	CI_ENTRY("status",   CSTATUS, VSTATUS )
+#endif
+	/* These must be last because of the display routines */
+	CI_ENTRY("min",      1,       VMIN    )
+	CI_ENTRY("time",     0,       VTIME   )
 };
 
 enum {
 	NUM_control_info = ARRAY_SIZE(control_info)
 };
 
-/* The width of the screen, for output wrapping */
-unsigned max_col = 80; /* default */
 
 struct globals {
+	const char *device_name; // = bb_msg_standard_input;
+	/* The width of the screen, for output wrapping */
+	unsigned max_col; // = 80;
 	/* Current position, to know when to wrap */
 	unsigned current_col;
 	char buf[10];
 };
 #define G (*(struct globals*)&bb_common_bufsiz1)
+#define INIT_G() \
+	do { \
+		G.device_name = bb_msg_standard_input; \
+		G.max_col = 80; \
+	} while (0)
 
-static const char *device_name = bb_msg_standard_input;
 
 /* Return a string that is the printable representation of character CH */
 /* Adapted from 'cat' by Torbjorn Granlund */
@@ -417,7 +665,7 @@ static const char *visible(unsigned ch)
 
 static tcflag_t *mode_type_flag(unsigned type, const struct termios *mode)
 {
-	static const unsigned char tcflag_offsets[] ALIGN1 = {
+	static const uint8_t tcflag_offsets[] ALIGN1 = {
 		offsetof(struct termios, c_cflag), /* control */
 		offsetof(struct termios, c_iflag), /* input */
 		offsetof(struct termios, c_oflag), /* output */
@@ -447,12 +695,12 @@ static void set_speed_or_die(enum speed_setting type, const char *const arg,
 
 static ATTRIBUTE_NORETURN void perror_on_device_and_die(const char *fmt)
 {
-	bb_perror_msg_and_die(fmt, device_name);
+	bb_perror_msg_and_die(fmt, G.device_name);
 }
 
 static void perror_on_device(const char *fmt)
 {
-	bb_perror_msg(fmt, device_name);
+	bb_perror_msg(fmt, G.device_name);
 }
 
 /* Print format string MESSAGE and optional args.
@@ -474,11 +722,11 @@ static void wrapf(const char *message, ...)
 	if (G.current_col > 0) {
 		G.current_col++;
 		if (buf[0] != '\n') {
-			if (G.current_col + buflen >= max_col) {
-				putchar('\n');
+			if (G.current_col + buflen >= G.max_col) {
+				bb_putchar('\n');
 				G.current_col = 0;
 			} else
-				putchar(' ');
+				bb_putchar(' ');
 		}
 	}
 	fputs(buf, stdout);
@@ -489,7 +737,7 @@ static void wrapf(const char *message, ...)
 
 static void set_window_size(const int rows, const int cols)
 {
-	struct winsize win = { 0, 0, 0, 0};
+	struct winsize win = { 0, 0, 0, 0 };
 
 	if (ioctl(STDIN_FILENO, TIOCGWINSZ, &win)) {
 		if (errno != EINVAL) {
@@ -532,20 +780,14 @@ static const struct suffix_mult stty_suffixes[] = {
 
 static const struct mode_info *find_mode(const char *name)
 {
-	int i;
-	for (i = 0; i < NUM_mode_info; ++i)
-		if (!strcmp(name, mode_info[i].name))
-			return &mode_info[i];
-	return 0;
+	int i = index_in_strings(mode_name, name);
+	return i >= 0 ? &mode_info[i] : NULL;
 }
 
 static const struct control_info *find_control(const char *name)
 {
-	int i;
-	for (i = 0; i < NUM_control_info; ++i)
-		if (!strcmp(name, control_info[i].name))
-			return &control_info[i];
-	return 0;
+	int i = index_in_strings(control_name, name);
+	return i >= 0 ? &control_info[i] : NULL;
 }
 
 enum {
@@ -618,7 +860,7 @@ static void display_recoverable(const struct termios *mode,
 		   (unsigned long) mode->c_cflag, (unsigned long) mode->c_lflag);
 	for (i = 0; i < NCCS; ++i)
 		printf(":%x", (unsigned int) mode->c_cc[i]);
-	putchar('\n');
+	bb_putchar('\n');
 }
 
 static void display_speed(const struct termios *mode, int fancy)
@@ -653,19 +895,21 @@ static void do_display(const struct termios *mode, const int all)
 	wrapf("\n");
 #endif
 
-	for (i = 0; control_info[i].name != stty_min; ++i) {
+	for (i = 0; i != CIDX_min; ++i) {
 		/* If swtch is the same as susp, don't print both */
 #if VSWTCH == VSUSP
-		if (control_info[i].name == stty_swtch)
+		if (i == CIDX_swtch)
 			continue;
 #endif
 		/* If eof uses the same slot as min, only print whichever applies */
 #if VEOF == VMIN
 		if ((mode->c_lflag & ICANON) == 0
-			&& (control_info[i].name == stty_eof
-				|| control_info[i].name == stty_eol)) continue;
+		 && (i == CIDX_eof || i == CIDX_eol)
+		) {
+			continue;
+		}
 #endif
-		wrapf("%s = %s;", control_info[i].name,
+		wrapf("%s = %s;", nth_string(control_name, i),
 			  visible(mode->c_cc[control_info[i].offset]));
 	}
 #if VEOF == VMIN
@@ -687,12 +931,13 @@ static void do_display(const struct termios *mode, const int all)
 		mask = mode_info[i].mask ? mode_info[i].mask : mode_info[i].bits;
 		if ((*bitsp & mask) == mode_info[i].bits) {
 			if (all || (mode_info[i].flags & SANE_UNSET))
-				wrapf("%s", mode_info[i].name);
+				wrapf("-%s"+1, nth_string(mode_name, i));
 		} else {
-			if ((all && mode_info[i].flags & REV) ||
-				 (!all &&
-				  (mode_info[i].flags & (SANE_SET | REV)) == (SANE_SET | REV)))
-				wrapf("-%s", mode_info[i].name);
+			if ((all && mode_info[i].flags & REV)
+			 || (!all && (mode_info[i].flags & (SANE_SET | REV)) == (SANE_SET | REV))
+			) {
+				wrapf("-%s", nth_string(mode_name, i));
+			}
 		}
 	}
 	if (G.current_col) wrapf("\n");
@@ -705,7 +950,7 @@ static void sane_mode(struct termios *mode)
 
 	for (i = 0; i < NUM_control_info; ++i) {
 #if VMIN == VEOF
-		if (control_info[i].name == stty_min)
+		if (i == CIDX_min)
 			break;
 #endif
 		mode->c_cc[control_info[i].offset] = control_info[i].saneval;
@@ -775,17 +1020,17 @@ static void set_mode(const struct mode_info *info, int reversed,
 	}
 
 	/* Combination mode */
-	if (info->name == evenp || info->name == parity) {
+	if (info == &mode_info[IDX_evenp] || info == &mode_info[IDX_parity]) {
 		if (reversed)
 			mode->c_cflag = (mode->c_cflag & ~PARENB & ~CSIZE) | CS8;
 		else
 			mode->c_cflag =	(mode->c_cflag & ~PARODD & ~CSIZE) | PARENB | CS7;
-	} else if (info->name == stty_oddp) {
+	} else if (info == &mode_info[IDX_oddp]) {
 		if (reversed)
 			mode->c_cflag = (mode->c_cflag & ~PARENB & ~CSIZE) | CS8;
 		else
 			mode->c_cflag =	(mode->c_cflag & ~CSIZE) | CS7 | PARODD | PARENB;
-	} else if (info->name == stty_nl) {
+	} else if (info == &mode_info[IDX_nl]) {
 		if (reversed) {
 			mode->c_iflag = (mode->c_iflag | ICRNL) & ~INLCR & ~IGNCR;
 			mode->c_oflag = (mode->c_oflag | ONLCR)	& ~OCRNL & ~ONLRET;
@@ -793,18 +1038,17 @@ static void set_mode(const struct mode_info *info, int reversed,
 			mode->c_iflag = mode->c_iflag & ~ICRNL;
 			if (ONLCR) mode->c_oflag = mode->c_oflag & ~ONLCR;
 		}
-	} else if (info->name == stty_ek) {
+	} else if (info == &mode_info[IDX_ek]) {
 		mode->c_cc[VERASE] = CERASE;
 		mode->c_cc[VKILL] = CKILL;
-	} else if (info->name == stty_sane) {
+	} else if (info == &mode_info[IDX_sane]) {
 		sane_mode(mode);
-	}
-	else if (info->name == cbreak) {
+	} else if (info == &mode_info[IDX_cbreak]) {
 		if (reversed)
 			mode->c_lflag |= ICANON;
 		else
 			mode->c_lflag &= ~ICANON;
-	} else if (info->name == stty_pass8) {
+	} else if (info == &mode_info[IDX_pass8]) {
 		if (reversed) {
 			mode->c_cflag = (mode->c_cflag & ~CSIZE) | CS7 | PARENB;
 			mode->c_iflag |= ISTRIP;
@@ -812,7 +1056,7 @@ static void set_mode(const struct mode_info *info, int reversed,
 			mode->c_cflag = (mode->c_cflag & ~PARENB & ~CSIZE) | CS8;
 			mode->c_iflag &= ~ISTRIP;
 		}
-	} else if (info->name == litout) {
+	} else if (info == &mode_info[IDX_litout]) {
 		if (reversed) {
 			mode->c_cflag = (mode->c_cflag & ~CSIZE) | CS7 | PARENB;
 			mode->c_iflag |= ISTRIP;
@@ -822,9 +1066,10 @@ static void set_mode(const struct mode_info *info, int reversed,
 			mode->c_iflag &= ~ISTRIP;
 			mode->c_oflag &= ~OPOST;
 		}
-	} else if (info->name == raw || info->name == cooked) {
-		if ((info->name[0] == 'r' && reversed)
-			|| (info->name[0] == 'c' && !reversed)) {
+	} else if (info == &mode_info[IDX_raw] || info == &mode_info[IDX_cooked]) {
+		if ((info == &mode_info[IDX_raw] && reversed)
+		 || (info == &mode_info[IDX_cooked] && !reversed)
+		) {
 			/* Cooked mode */
 			mode->c_iflag |= BRKINT | IGNPAR | ISTRIP | ICRNL | IXON;
 			mode->c_oflag |= OPOST;
@@ -844,26 +1089,27 @@ static void set_mode(const struct mode_info *info, int reversed,
 			mode->c_cc[VTIME] = 0;
 		}
 	}
-	else if (IXANY && info->name == decctlq) {
+	else if (IXANY && info == &mode_info[IDX_decctlq]) {
 		if (reversed)
 			mode->c_iflag |= IXANY;
 		else
 			mode->c_iflag &= ~IXANY;
 	}
-	else if (TABDLY && info->name == stty_tabs) {
+	else if (TABDLY && info == &mode_info[IDX_tabs]) {
 		if (reversed)
 			mode->c_oflag = (mode->c_oflag & ~TABDLY) | TAB3;
 		else
 			mode->c_oflag = (mode->c_oflag & ~TABDLY) | TAB0;
 	}
-	else if (OXTABS && info->name == stty_tabs) {
+	else if (OXTABS && info == &mode_info[IDX_tabs]) {
 		if (reversed)
 			mode->c_oflag |= OXTABS;
 		else
 			mode->c_oflag &= ~OXTABS;
-	}
-	else if (XCASE && IUCLC && OLCUC
-	&& (info->name == stty_lcase || info->name == stty_LCASE)) {
+	} else
+	if (XCASE && IUCLC && OLCUC
+	 && (info == &mode_info[IDX_lcase] || info == &mode_info[IDX_LCASE])
+	) {
 		if (reversed) {
 			mode->c_lflag &= ~XCASE;
 			mode->c_iflag &= ~IUCLC;
@@ -873,11 +1119,9 @@ static void set_mode(const struct mode_info *info, int reversed,
 			mode->c_iflag |= IUCLC;
 			mode->c_oflag |= OLCUC;
 		}
-	}
-	else if (info->name == stty_crt) {
+	} else if (info == &mode_info[IDX_crt]) {
 		mode->c_lflag |= ECHOE | ECHOCTL | ECHOKE;
-	}
-	else if (info->name == stty_dec) {
+	} else if (info == &mode_info[IDX_dec]) {
 		mode->c_cc[VINTR] = 3; /* ^C */
 		mode->c_cc[VERASE] = 127; /* DEL */
 		mode->c_cc[VKILL] = 21; /* ^U */
@@ -891,7 +1135,7 @@ static void set_control_char_or_die(const struct control_info *info,
 {
 	unsigned char value;
 
-	if (info->name == stty_min || info->name == stty_time)
+	if (info == &control_info[CIDX_min] || info == &control_info[CIDX_time])
 		value = xatoul_range_sfx(arg, 0, 0xff, stty_suffixes);
 	else if (arg[0] == '\0' || arg[1] == '\0')
 		value = arg[0];
@@ -906,12 +1150,13 @@ static void set_control_char_or_die(const struct control_info *info,
 	mode->c_cc[info->offset] = value;
 }
 
-#define STTY_require_set_attr   (1<<0)
-#define STTY_speed_was_set      (1<<1)
-#define STTY_verbose_output     (1<<2)
-#define STTY_recoverable_output (1<<3)
-#define STTY_noargs             (1<<4)
-int stty_main(int argc, char **argv);
+#define STTY_require_set_attr   (1 << 0)
+#define STTY_speed_was_set      (1 << 1)
+#define STTY_verbose_output     (1 << 2)
+#define STTY_recoverable_output (1 << 3)
+#define STTY_noargs             (1 << 4)
+
+int stty_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int stty_main(int argc, char **argv)
 {
 	struct termios mode;
@@ -920,6 +1165,8 @@ int stty_main(int argc, char **argv)
 	int display_all = 0;
 	int stty_state;
 	int k;
+
+	INIT_G();
 
 	stty_state = STTY_noargs;
 	output_func = do_display;
@@ -1048,8 +1295,8 @@ int stty_main(int argc, char **argv)
 	/* Now it is safe to start doing things */
 	if (file_name) {
 		int fd, fdflags;
-		device_name = file_name;
-		fd = xopen(device_name, O_RDONLY | O_NONBLOCK);
+		G.device_name = file_name;
+		fd = xopen(G.device_name, O_RDONLY | O_NONBLOCK);
 		if (fd != STDIN_FILENO) {
 			dup2(fd, STDIN_FILENO);
 			close(fd);
@@ -1067,7 +1314,7 @@ int stty_main(int argc, char **argv)
 		perror_on_device_and_die("%s");
 
 	if (stty_state & (STTY_verbose_output | STTY_recoverable_output | STTY_noargs)) {
-		get_terminal_width_height(STDOUT_FILENO, &max_col, NULL);
+		get_terminal_width_height(STDOUT_FILENO, &G.max_col, NULL);
 		output_func(&mode, display_all);
 		return EXIT_SUCCESS;
 	}

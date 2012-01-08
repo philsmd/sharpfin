@@ -17,7 +17,7 @@
 
 /* Written by Jim Meyering.  */
 
-/* Busyboxed by Denis Vlasenko
+/* Busyboxed by Denys Vlasenko
 
 Based on od.c from coreutils-5.2.1
 Top bloat sources:
@@ -181,37 +181,23 @@ static void (*format_address)(off_t, char);
 /* The difference between the old-style pseudo starting address and
    the number of bytes to skip.  */
 static off_t pseudo_offset;
-/* The number of input bytes to skip before formatting and writing.  */
-static off_t n_bytes_to_skip;
 /* When zero, MAX_BYTES_TO_FORMAT and END_OFFSET are ignored, and all
    input is formatted.  */
-/* The maximum number of bytes that will be formatted.  */
-static off_t max_bytes_to_format;
-/* The offset of the first byte after the last byte to be formatted.  */
-static off_t end_offset;
 
 /* The number of input bytes formatted per output line.  It must be
    a multiple of the least common multiple of the sizes associated with
    the specified output types.  It should be as large as possible, but
    no larger than 16 -- unless specified with the -w option.  */
-static size_t bytes_per_block;
-
-/* Human-readable representation of *file_list (for error messages).
-   It differs from *file_list only when *file_list is "-".  */
-static char const *input_filename;
+static unsigned bytes_per_block = 32; /* have to use unsigned, not size_t */
 
 /* A NULL-terminated list of the file-arguments from the command line.  */
-static char const *const *file_list;
-
-/* Initializer for file_list if no file-arguments
-   were specified on the command line.  */
-static char const *const default_file_list[] = { "-", NULL };
+static const char *const *file_list;
 
 /* The input stream associated with the current file.  */
 static FILE *in_stream;
 
 #define MAX_INTEGRAL_TYPE_SIZE sizeof(ulonglong_t)
-static unsigned char integral_type_size[MAX_INTEGRAL_TYPE_SIZE + 1] ALIGN1 = {
+static const unsigned char integral_type_size[MAX_INTEGRAL_TYPE_SIZE + 1] ALIGN1 = {
 	[sizeof(char)] = CHAR,
 #if USHRT_MAX != UCHAR_MAX
 	[sizeof(short)] = SHORT,
@@ -228,7 +214,7 @@ static unsigned char integral_type_size[MAX_INTEGRAL_TYPE_SIZE + 1] ALIGN1 = {
 };
 
 #define MAX_FP_TYPE_SIZE sizeof(longdouble_t)
-static unsigned char fp_type_size[MAX_FP_TYPE_SIZE + 1] ALIGN1 = {
+static const unsigned char fp_type_size[MAX_FP_TYPE_SIZE + 1] ALIGN1 = {
 	/* gcc seems to allow repeated indexes. Last one stays */
 	[sizeof(longdouble_t)] = FLOAT_LONG_DOUBLE,
 	[sizeof(double)] = FLOAT_DOUBLE,
@@ -374,7 +360,7 @@ print_long_double(size_t n_bytes, const char *block, const char *fmt_string)
 }
 
 /* print_[named]_ascii are optimized for speed.
- * Remember, someday you may want to pump gigabytes thru this thing.
+ * Remember, someday you may want to pump gigabytes through this thing.
  * Saving a dozen of .text bytes here is counter-productive */
 
 static void
@@ -481,14 +467,10 @@ static void
 open_next_file(void)
 {
 	while (1) {
-		input_filename = *file_list;
-		if (!input_filename)
+		if (!*file_list)
 			return;
-		file_list++;
-		in_stream = fopen_or_warn_stdin(input_filename);
+		in_stream = fopen_or_warn_stdin(*file_list++);
 		if (in_stream) {
-			if (in_stream == stdin)
-				input_filename = bb_msg_standard_input;
 			break;
 		}
 		ioerror = 1;
@@ -510,7 +492,10 @@ check_and_close(void)
 {
 	if (in_stream) {
 		if (ferror(in_stream))	{
-			bb_error_msg("%s: read error", input_filename);
+			bb_error_msg("%s: read error", (in_stream == stdin)
+					? bb_msg_standard_input
+					: file_list[-1]
+			);
 			ioerror = 1;
 		}
 		fclose_if_not_stdin(in_stream);
@@ -738,7 +723,7 @@ decode_one_format(const char *s_orig, const char *s, const char **next,
 
 /* Decode the modern od format string S.  Append the decoded
    representation to the global array SPEC, reallocating SPEC if
-   necessary.  Return zero if S is valid, nonzero otherwise.  */
+   necessary.  */
 
 static void
 decode_format_string(const char *s)
@@ -791,21 +776,22 @@ skip(off_t n_skip)
 			   as large as the size of the current file, we can
 			   decrement n_skip and go on to the next file.  */
 		if (fstat(fileno(in_stream), &file_stats) == 0
-		 && S_ISREG(file_stats.st_mode) && file_stats.st_size >= 0
+		 && S_ISREG(file_stats.st_mode) && file_stats.st_size > 0
 		) {
 			if (file_stats.st_size < n_skip) {
 				n_skip -= file_stats.st_size;
-				/* take check&close / open_next route */
+				/* take "check & close / open_next" route */
 			} else {
 				if (fseeko(in_stream, n_skip, SEEK_CUR) != 0)
 					ioerror = 1;
 				return;
 			}
 		} else {
-			/* If it's not a regular file with nonnegative size,
+			/* If it's not a regular file with positive size,
 			   position the file pointer by reading.  */
-			char buf[BUFSIZ];
-			size_t n_bytes_read, n_bytes_to_read = BUFSIZ;
+			char buf[1024];
+			size_t n_bytes_to_read = 1024;
+			size_t n_bytes_read;
 
 			while (n_skip > 0) {
 				if (n_skip < n_bytes_to_read)
@@ -1014,22 +1000,17 @@ parse_old_offset(const char *s, off_t *offset)
    spec, extend the input block with zero bytes until its length is a
    multiple of all format spec sizes.  Write the final block.  Finally,
    write on a line by itself the offset of the byte after the last byte
-   read.  Accumulate return values from calls to read_block and
-   check_and_close, and if any was nonzero, return nonzero.
-   Otherwise, return zero.  */
+   read.  */
 
 static void
-dump(void)
+dump(off_t current_offset, off_t end_offset)
 {
 	char *block[2];
-	off_t current_offset;
 	int idx;
 	size_t n_bytes_read;
 
 	block[0] = xmalloc(2*bytes_per_block);
 	block[1] = block[0] + bytes_per_block;
-
-	current_offset = n_bytes_to_skip;
 
 	idx = 0;
 	if (limit_bytes_to_format) {
@@ -1095,8 +1076,7 @@ dump(void)
    and INPUT_FILENAME so they correspond to the next file in the list.
    Then try to read a byte from the newly opened file.  Repeat if
    necessary until EOF is reached for the last file in FILE_LIST, then
-   set *C to EOF and return.  Subsequent calls do likewise.  The return
-   value is nonzero if any errors occured, zero otherwise.  */
+   set *C to EOF and return.  Subsequent calls do likewise.  */
 
 static void
 read_char(int *c)
@@ -1129,15 +1109,13 @@ read_char(int *c)
    A string constant is a run of at least 'string_min' ASCII
    graphic (or formatting) characters terminated by a null.
    Based on a function written by Richard Stallman for a
-   traditional version of od.  Return nonzero if an error
-   occurs.  Otherwise, return zero.  */
+   traditional version of od.  */
 
 static void
-dump_strings(void)
+dump_strings(off_t address, off_t end_offset)
 {
 	size_t bufsize = MAX(100, string_min);
 	char *buf = xmalloc(bufsize);
-	off_t address = n_bytes_to_skip;
 
 	while (1) {
 		size_t i;
@@ -1169,7 +1147,7 @@ dump_strings(void)
 		if (i < string_min)		/* Too short! */
 			goto tryline;
 
-		/* If we get here, the string is all printable and null-terminated,
+		/* If we get here, the string is all printable and NUL-terminated,
 		 * so print it.  It is all in 'buf' and 'i' is its length.  */
 		buf[i] = 0;
 		format_address(address - i - 1, ' ');
@@ -1183,7 +1161,7 @@ dump_strings(void)
 			case '\r': fputs("\\r", stdout); break;
 			case '\t': fputs("\\t", stdout); break;
 			case '\v': fputs("\\v", stdout); break;
-			default: putc(c, stdout);
+			default: putchar(c);
 			}
 		}
 		putchar('\n');
@@ -1196,7 +1174,7 @@ dump_strings(void)
 	check_and_close();
 }
 
-int od_main(int argc, char **argv);
+int od_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int od_main(int argc, char **argv)
 {
 	static const struct suffix_mult bkm[] = {
@@ -1205,11 +1183,6 @@ int od_main(int argc, char **argv)
 		{ "m", 1024*1024 },
 		{ }
 	};
-	unsigned opt;
-	int l_c_m;
-	/* The old-style 'pseudo starting address' to be printed in parentheses
-	   after any true address.  */
-	off_t pseudo_start = 0; // only for gcc
 	enum {
 		OPT_A = 1 << 0,
 		OPT_N = 1 << 1,
@@ -1244,8 +1217,18 @@ int od_main(int argc, char **argv)
 		;
 #endif
 	char *str_A, *str_N, *str_j, *str_S;
-	char *str_w = NULL;
 	llist_t *lst_t = NULL;
+	unsigned opt;
+	int l_c_m;
+	/* The old-style 'pseudo starting address' to be printed in parentheses
+	   after any true address.  */
+	off_t pseudo_start = pseudo_start; // for gcc
+	/* The number of input bytes to skip before formatting and writing.  */
+	off_t n_bytes_to_skip = 0;
+	/* The offset of the first byte after the last byte to be formatted.  */
+	off_t end_offset = 0;
+	/* The maximum number of bytes that will be formatted.  */
+	off_t max_bytes_to_format = 0;
 
 	spec = NULL;
 	format_address = format_address_std;
@@ -1254,7 +1237,7 @@ int od_main(int argc, char **argv)
 	/* flag_dump_strings = 0; - already is */
 
 	/* Parse command line */
-	opt_complementary = "t::"; // list
+	opt_complementary = "w+:t::"; /* -w N, -t is a list */
 #if ENABLE_GETOPT_LONG
 	applet_long_options = od_longopts;
 #endif
@@ -1263,7 +1246,7 @@ int od_main(int argc, char **argv)
 		// -S was -s and also had optional parameter
 		// but in coreutils 6.3 it was renamed and now has
 		// _mandatory_ parameter
-		&str_A, &str_N, &str_j, &lst_t, &str_S, &str_w);
+		&str_A, &str_N, &str_j, &lst_t, &str_S, &bytes_per_block);
 	argc -= optind;
 	argv += optind;
 	if (opt & OPT_A) {
@@ -1399,7 +1382,7 @@ int od_main(int argc, char **argv)
 	/* If no files were listed on the command line,
 	   set the global pointer FILE_LIST so that it
 	   references the null-terminated list of one name: "-".  */
-	file_list = default_file_list;
+	file_list = bb_argv_dash;
 	if (argc > 0) {
 		/* Set the global pointer FILE_LIST so that it
 		   references the first file-argument on the command-line.  */
@@ -1411,7 +1394,7 @@ int od_main(int argc, char **argv)
 	/* skip over any unwanted header bytes */
 	skip(n_bytes_to_skip);
 	if (!in_stream)
-		return 1;
+		return EXIT_FAILURE;
 
 	pseudo_offset = (flag_pseudo_start ? pseudo_start - n_bytes_to_skip : 0);
 
@@ -1419,12 +1402,9 @@ int od_main(int argc, char **argv)
 	l_c_m = get_lcm();
 
 	if (opt & OPT_w) { /* -w: width */
-		bytes_per_block = 32;
-		if (str_w)
-			bytes_per_block = xatou(str_w);
 		if (!bytes_per_block || bytes_per_block % l_c_m != 0) {
-			bb_error_msg("warning: invalid width %zu; using %d instead",
-					bytes_per_block, l_c_m);
+			bb_error_msg("warning: invalid width %u; using %d instead",
+					(unsigned)bytes_per_block, l_c_m);
 			bytes_per_block = l_c_m;
 		}
 	} else {
@@ -1441,9 +1421,9 @@ int od_main(int argc, char **argv)
 #endif
 
 	if (flag_dump_strings)
-		dump_strings();
+		dump_strings(n_bytes_to_skip, end_offset);
 	else
-		dump();
+		dump(n_bytes_to_skip, end_offset);
 
 	if (fclose(stdin) == EOF)
 		bb_perror_msg_and_die(bb_msg_standard_input);

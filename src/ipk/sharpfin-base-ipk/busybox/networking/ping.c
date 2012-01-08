@@ -94,7 +94,7 @@ static void ping4(len_and_sockaddr *lsa)
 	char packet[DEFDATALEN + MAXIPLEN + MAXICMPLEN];
 
 	pingsock = create_icmp_socket();
-	pingaddr = lsa->sin;
+	pingaddr = lsa->u.sin;
 
 	pkt = (struct icmp *) packet;
 	memset(pkt, 0, sizeof(packet));
@@ -138,7 +138,7 @@ static void ping6(len_and_sockaddr *lsa)
 	char packet[DEFDATALEN + MAXIPLEN + MAXICMPLEN];
 
 	pingsock = create_icmp6_socket();
-	pingaddr = lsa->sin6;
+	pingaddr = lsa->u.sin6;
 
 	pkt = (struct icmp6_hdr *) packet;
 	memset(pkt, 0, sizeof(packet));
@@ -173,8 +173,8 @@ static void ping6(len_and_sockaddr *lsa)
 }
 #endif
 
-int ping_main(int argc, char **argv);
-int ping_main(int argc, char **argv)
+int ping_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int ping_main(int argc ATTRIBUTE_UNUSED, char **argv)
 {
 	len_and_sockaddr *lsa;
 #if ENABLE_PING6
@@ -209,7 +209,7 @@ int ping_main(int argc, char **argv)
 	alarm(5); /* give the host 5000ms to respond */
 
 #if ENABLE_PING6
-	if (lsa->sa.sa_family == AF_INET6)
+	if (lsa->u.sa.sa_family == AF_INET6)
 		ping6(lsa);
 	else
 #endif
@@ -238,9 +238,10 @@ enum {
 
 struct globals {
 	int pingsock;
+	int if_index;
+	char *opt_I;
 	len_and_sockaddr *source_lsa;
 	unsigned datalen;
-	int if_index;
 	unsigned long ntransmitted, nreceived, nrepeats, pingcount;
 	uint16_t myid;
 	unsigned tmin, tmax; /* in us */
@@ -258,9 +259,10 @@ struct globals {
 };
 #define G (*(struct globals*)&bb_common_bufsiz1)
 #define pingsock     (G.pingsock    )
-#define source_lsa   (G.source_lsa  )
-#define datalen      (G.datalen     )
 #define if_index     (G.if_index    )
+#define source_lsa   (G.source_lsa  )
+#define opt_I        (G.opt_I       )
+#define datalen      (G.datalen     )
 #define ntransmitted (G.ntransmitted)
 #define nreceived    (G.nreceived   )
 #define nrepeats     (G.nrepeats    )
@@ -275,8 +277,8 @@ struct globals {
 #define rcvd_tbl     (G.rcvd_tbl    )
 void BUG_ping_globals_too_big(void);
 #define INIT_G() do { \
-        if (sizeof(G) > COMMON_BUFSIZE) \
-                BUG_ping_globals_too_big(); \
+	if (sizeof(G) > COMMON_BUFSIZE) \
+		BUG_ping_globals_too_big(); \
 	pingsock = -1; \
 	tmin = UINT_MAX; \
 } while (0)
@@ -493,7 +495,7 @@ static void unpack4(char *buf, int sz, struct sockaddr_in *from)
 	}
 }
 #if ENABLE_PING6
-static void unpack6(char *packet, int sz, struct sockaddr_in6 *from, int hoplimit)
+static void unpack6(char *packet, int sz, /*struct sockaddr_in6 *from,*/ int hoplimit)
 {
 	struct icmp6_hdr *icmppkt;
 	char buf[INET6_ADDRSTRLEN];
@@ -530,13 +532,15 @@ static void ping4(len_and_sockaddr *lsa)
 	int sockopt;
 
 	pingsock = create_icmp_socket();
-	pingaddr.sin = lsa->sin;
+	pingaddr.sin = lsa->u.sin;
 	if (source_lsa) {
 		if (setsockopt(pingsock, IPPROTO_IP, IP_MULTICAST_IF,
-				&source_lsa->sa, source_lsa->len))
+				&source_lsa->u.sa, source_lsa->len))
 			bb_error_msg_and_die("can't set multicast source interface");
-		xbind(pingsock, &source_lsa->sa, source_lsa->len);
+		xbind(pingsock, &source_lsa->u.sa, source_lsa->len);
 	}
+	if (opt_I)
+		setsockopt(pingsock, SOL_SOCKET, SO_BINDTODEVICE, opt_I, strlen(opt_I) + 1);
 
 	/* enable broadcast pings */
 	setsockopt_broadcast(pingsock);
@@ -580,10 +584,12 @@ static void ping6(len_and_sockaddr *lsa)
 	char control_buf[CMSG_SPACE(36)];
 
 	pingsock = create_icmp6_socket();
-	pingaddr.sin6 = lsa->sin6;
+	pingaddr.sin6 = lsa->u.sin6;
 	/* untested whether "-I addr" really works for IPv6: */
 	if (source_lsa)
-		xbind(pingsock, &source_lsa->sa, source_lsa->len);
+		xbind(pingsock, &source_lsa->u.sa, source_lsa->len);
+	if (opt_I)
+		setsockopt(pingsock, SOL_SOCKET, SO_BINDTODEVICE, opt_I, strlen(opt_I) + 1);
 
 #ifdef ICMP6_FILTER
 	{
@@ -652,7 +658,7 @@ static void ping6(len_and_sockaddr *lsa)
 				hoplimit = *(int*)CMSG_DATA(mp);
 			}
 		}
-		unpack6(packet, c, &from, hoplimit);
+		unpack6(packet, c, /*&from,*/ hoplimit);
 		if (pingcount > 0 && nreceived >= pingcount)
 			break;
 	}
@@ -664,39 +670,42 @@ static void ping(len_and_sockaddr *lsa)
 	printf("PING %s (%s)", hostname, dotted);
 	if (source_lsa) {
 		printf(" from %s",
-			xmalloc_sockaddr2dotted_noport(&source_lsa->sa));
+			xmalloc_sockaddr2dotted_noport(&source_lsa->u.sa));
 	}
 	printf(": %d data bytes\n", datalen);
 
 #if ENABLE_PING6
-	if (lsa->sa.sa_family == AF_INET6)
+	if (lsa->u.sa.sa_family == AF_INET6)
 		ping6(lsa);
 	else
 #endif
 		ping4(lsa);
 }
 
-int ping_main(int argc, char **argv);
-int ping_main(int argc, char **argv)
+int ping_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int ping_main(int argc ATTRIBUTE_UNUSED, char **argv)
 {
 	len_and_sockaddr *lsa;
-	char *opt_c, *opt_s, *opt_I;
+	char *opt_c, *opt_s;
 	USE_PING6(sa_family_t af = AF_UNSPEC;)
 
 	INIT_G();
 
-	datalen = DEFDATALEN; /* initialized here rather than in global scope to work around gcc bug */
+	datalen = DEFDATALEN;
 
 	/* exactly one argument needed, -v and -q don't mix */
 	opt_complementary = "=1:q--v:v--q";
 	getopt32(argv, OPT_STRING, &opt_c, &opt_s, &opt_I);
-	if (option_mask32 & OPT_c) pingcount = xatoul(opt_c); // -c
-	if (option_mask32 & OPT_s) datalen = xatou16(opt_s); // -s
+	if (option_mask32 & OPT_c)
+		pingcount = xatoul(opt_c); // -c
+	if (option_mask32 & OPT_s)
+		datalen = xatou16(opt_s); // -s
 	if (option_mask32 & OPT_I) { // -I
 		if_index = if_nametoindex(opt_I);
 		if (!if_index) {
 			/* TODO: I'm not sure it takes IPv6 unless in [XX:XX..] format */
 			source_lsa = xdotted2sockaddr(opt_I, 0);
+			opt_I = NULL; /* don't try to bind to device later */
 		}
 	}
 	myid = (uint16_t) getpid();
@@ -711,11 +720,11 @@ int ping_main(int argc, char **argv)
 	lsa = xhost_and_af2sockaddr(hostname, 0, AF_INET);
 #endif
 
-	if (source_lsa && source_lsa->sa.sa_family != lsa->sa.sa_family)
+	if (source_lsa && source_lsa->u.sa.sa_family != lsa->u.sa.sa_family)
 		/* leaking it here... */
 		source_lsa = NULL;
 
-	dotted = xmalloc_sockaddr2dotted_noport(&lsa->sa);
+	dotted = xmalloc_sockaddr2dotted_noport(&lsa->u.sa);
 	ping(lsa);
 	pingstats(0);
 	return EXIT_SUCCESS;
@@ -724,7 +733,7 @@ int ping_main(int argc, char **argv)
 
 
 #if ENABLE_PING6
-int ping6_main(int argc, char **argv);
+int ping6_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int ping6_main(int argc, char **argv)
 {
 	argv[0] = (char*)"-6";

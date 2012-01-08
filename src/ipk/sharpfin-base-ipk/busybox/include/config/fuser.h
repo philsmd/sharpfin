@@ -1,1 +1,1 @@
-#undef CONFIG_FUSER
+#define CONFIG_FUSER 1

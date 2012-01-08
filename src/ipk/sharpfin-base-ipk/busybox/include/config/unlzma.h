@@ -1,1 +1,1 @@
-#undef CONFIG_UNLZMA
+#define CONFIG_UNLZMA 1

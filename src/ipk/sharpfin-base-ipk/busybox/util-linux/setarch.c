@@ -11,8 +11,8 @@
 
 #include "libbb.h"
 
-int setarch_main(int ATTRIBUTE_UNUSED argc, char **argv);
-int setarch_main(int ATTRIBUTE_UNUSED argc, char **argv)
+int setarch_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int setarch_main(int argc ATTRIBUTE_UNUSED, char **argv)
 {
 	int pers = -1;
 
@@ -44,5 +44,5 @@ retry:
 		BB_EXECVP(argv[0], argv);
 	}
 
-	bb_perror_msg_and_die("%s", argv[0]);
+	bb_simple_perror_msg_and_die(argv[0]);
 }

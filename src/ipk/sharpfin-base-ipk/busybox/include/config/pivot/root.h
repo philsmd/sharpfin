@@ -1,1 +1,1 @@
-#undef CONFIG_PIVOT_ROOT
+#define CONFIG_PIVOT_ROOT 1

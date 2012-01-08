@@ -20,8 +20,7 @@ blkid_dev blkid_new_dev(void)
 {
 	blkid_dev dev;
 
-	if (!(dev = (blkid_dev) calloc(1, sizeof(struct blkid_struct_dev))))
-		return NULL;
+	dev = xzalloc(sizeof(struct blkid_struct_dev));
 
 	INIT_LIST_HEAD(&dev->bid_devs);
 	INIT_LIST_HEAD(&dev->bid_tags);
@@ -82,7 +81,7 @@ void blkid_debug_dump_dev(blkid_dev dev)
 		else
 			printf("    tag: NULL\n");
 	}
-	puts("");
+	bb_putchar('\n');
 }
 #endif
 
@@ -161,7 +160,7 @@ void usage(char *prog)
 int main(int argc, char **argv)
 {
 	blkid_dev_iterate	iter;
-	blkid_cache 		cache = NULL;
+	blkid_cache		cache = NULL;
 	blkid_dev		dev;
 	int			c, ret;
 	char			*tmp;

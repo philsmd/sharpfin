@@ -1,1 +1,1 @@
-#undef CONFIG_FTPPUT
+#define CONFIG_FTPPUT 1

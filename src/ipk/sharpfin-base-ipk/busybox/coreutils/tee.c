@@ -13,7 +13,7 @@
 #include "libbb.h"
 #include <signal.h>
 
-int tee_main(int argc, char **argv);
+int tee_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int tee_main(int argc, char **argv)
 {
 	const char *mode = "w\0a";
@@ -22,6 +22,7 @@ int tee_main(int argc, char **argv)
 	char **names;
 	char **np;
 	char retval;
+//TODO: make unconditional
 #if ENABLE_FEATURE_TEE_USE_BLOCK_IO
 	ssize_t c;
 # define buf bb_common_bufsiz1
@@ -35,12 +36,12 @@ int tee_main(int argc, char **argv)
 	mode += (retval & 2);	/* Since 'a' is the 2nd option... */
 
 	if (retval & 1) {
-		signal(SIGINT, SIG_IGN); /* TODO - switch to sigaction. */
+		signal(SIGINT, SIG_IGN); /* TODO - switch to sigaction. (why?) */
 	}
 	retval = EXIT_SUCCESS;
 	/* gnu tee ignores SIGPIPE in case one of the output files is a pipe
 	 * that doesn't consume all its input.  Good idea... */
-	signal(SIGPIPE, SIG_IGN);	/* TODO - switch to sigaction. */
+	signal(SIGPIPE, SIG_IGN);
 
 	/* Allocate an array of FILE *'s, with one extra for a sentinal. */
 	fp = files = xzalloc(sizeof(FILE *) * (argc + 2));
@@ -62,7 +63,7 @@ int tee_main(int argc, char **argv)
 	/* names[0] will be filled later */
 
 #if ENABLE_FEATURE_TEE_USE_BLOCK_IO
-	while ((c = safe_read(STDIN_FILENO, buf, BUFSIZ)) > 0) {
+	while ((c = safe_read(STDIN_FILENO, buf, sizeof(buf))) > 0) {
 		fp = files;
 		do
 			fwrite(buf, 1, c, *fp++);

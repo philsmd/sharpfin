@@ -1,1 +1,1 @@
-#undef CONFIG_EJECT
+#define CONFIG_EJECT 1

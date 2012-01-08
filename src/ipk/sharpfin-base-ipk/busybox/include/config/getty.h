@@ -1,1 +1,1 @@
-#undef CONFIG_GETTY
+#define CONFIG_GETTY 1

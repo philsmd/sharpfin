@@ -13,7 +13,7 @@
 #define DPKG_DEB_OPT_EXTRACT	8
 #define DPKG_DEB_OPT_EXTRACT_VERBOSE	16
 
-int dpkg_deb_main(int argc, char **argv);
+int dpkg_deb_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int dpkg_deb_main(int argc, char **argv)
 {
 	archive_handle_t *ar_archive;
@@ -41,7 +41,7 @@ int dpkg_deb_main(int argc, char **argv)
 	llist_add_to(&control_tar_llist, (char*)"control.tar.bz2");
 #endif
 
-	opt_complementary = "?c--efXx:e--cfXx:f--ceXx:X--cefx:x--cefX";
+	opt_complementary = "c--efXx:e--cfXx:f--ceXx:X--cefx:x--cefX";
 	opt = getopt32(argv, "cefXx");
 
 	if (opt & DPKG_DEB_OPT_CONTENTS) {

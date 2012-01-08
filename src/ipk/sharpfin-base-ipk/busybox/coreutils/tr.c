@@ -22,10 +22,6 @@
 
 #define ASCII 0377
 
-#define TR_OPT_complement	(1<<0)
-#define TR_OPT_delete		(1<<1)
-#define TR_OPT_squeeze_reps	(1<<2)
-
 static void map(char *pvector,
 		unsigned char *string1, unsigned int string1_len,
 		unsigned char *string2, unsigned int string2_len)
@@ -42,19 +38,46 @@ static void map(char *pvector,
 }
 
 /* supported constructs:
- *   Ranges,  e.g.,  [0-9]  ==>  0123456789
- *   Escapes, e.g.,  \a     ==>  Control-G
- *	 Character classes, e.g. [:upper:] ==> A ... Z
+ *   Ranges,  e.g.,  0-9   ==>  0123456789
+ *   Ranges,  e.g.,  [0-9] ==>  0123456789
+ *   Escapes, e.g.,  \a    ==>  Control-G
+ *   Character classes, e.g. [:upper:] ==> A...Z
+ *   Equiv classess, e.g. [=A=] ==> A   (hmmmmmmm?)
  */
 static unsigned int expand(const char *arg, char *buffer)
 {
 	char *buffer_start = buffer;
-	unsigned i; /* XXX: FIXME: use unsigned char? */
+	unsigned i; /* can't be unsigned char: must be able to hold 256 */
 	unsigned char ac;
+
+	while (*arg) {
+		if (*arg == '\\') {
+			arg++;
+			*buffer++ = bb_process_escape_sequence(&arg);
+			continue;
+		}
+		if (arg[1] == '-') { /* "0-9..." */
+			ac = arg[2];
+			if (ac == '\0') { /* "0-": copy verbatim */
+				*buffer++ = *arg++; /* copy '0' */
+				continue; /* next iter will copy '-' and stop */
+			}
+			i = *arg;
+			while (i <= ac) /* ok: i is unsigned _int_ */
+				*buffer++ = i++;
+			arg += 3; /* skip 0-9 */
+			continue;
+		}
+		if (*arg == '[') { /* "[xyz..." */
+			arg++;
+			i = *arg++;
+			/* "[xyz...", i=x, arg points to y */
+			if (ENABLE_FEATURE_TR_CLASSES && i == ':') {
 #define CLO ":]\0"
-	static const char classes[] ALIGN1 =
-		"alpha"CLO "alnum"CLO "digit"CLO "lower"CLO "upper"CLO "space"CLO
-		"blank"CLO "punct"CLO "cntrl"CLO;
+				static const char classes[] ALIGN1 =
+					"alpha"CLO "alnum"CLO "digit"CLO
+					"lower"CLO "upper"CLO "space"CLO
+					"blank"CLO "punct"CLO "cntrl"CLO;
 #define CLASS_invalid 0 /* we increment the retval */
 #define CLASS_alpha 1
 #define CLASS_alnum 2
@@ -68,27 +91,9 @@ static unsigned int expand(const char *arg, char *buffer)
 //#define CLASS_xdigit 10
 //#define CLASS_graph 11
 //#define CLASS_print 12
-	while (*arg) {
-		if (*arg == '\\') {
-			arg++;
-			*buffer++ = bb_process_escape_sequence(&arg);
-		} else if (*(arg+1) == '-') {
-			ac = *(arg+2);
-			if (ac == 0) {
-				*buffer++ = *arg++;
-				continue;
-			}
-			i = *arg;
-			while (i <= ac)
-				*buffer++ = i++;
-			arg += 3; /* Skip the assumed a-z */
-		} else if (*arg == '[') {
-			arg++;
-			i = *arg++;
-			if (ENABLE_FEATURE_TR_CLASSES && i == ':') {
 				smalluint j;
 				{ /* not really pretty.. */
-					char *tmp = xstrndup(arg, 7); // warning: xdigit needs 8, not 7
+					char *tmp = xstrndup(arg, 7); // warning: xdigit would need 8, not 7
 					j = index_in_strings(classes, tmp) + 1;
 					free(tmp);
 				}
@@ -115,10 +120,9 @@ static unsigned int expand(const char *arg, char *buffer)
 					*buffer++ = ' ';
 				}
 				if (j == CLASS_punct || j == CLASS_cntrl) {
-					for (i = 0; i <= ASCII; i++)
-						if ((j == CLASS_punct &&
-							 isprint(i) && (!isalnum(i)) && (!isspace(i))) ||
-							(j == CLASS_cntrl && iscntrl(i)))
+					for (i = '\0'; i <= ASCII; i++)
+						if ((j == CLASS_punct && isprint(i) && !isalnum(i) && !isspace(i))
+						 || (j == CLASS_cntrl && iscntrl(i)))
 							*buffer++ = i;
 				}
 				if (j == CLASS_invalid) {
@@ -128,22 +132,26 @@ static unsigned int expand(const char *arg, char *buffer)
 				}
 				break;
 			}
-			if (ENABLE_FEATURE_TR_EQUIV && i == '=') {
-				*buffer++ = *arg;
-				arg += 3;	/* Skip the closing =] */
+			/* "[xyz...", i=x, arg points to y */
+			if (ENABLE_FEATURE_TR_EQUIV && i == '=') { /* [=CHAR=] */
+				*buffer++ = *arg; /* copy CHAR */
+				arg += 3;	/* skip CHAR=] */
 				continue;
 			}
-			if (*arg++ != '-') {
+			if (*arg != '-') { /* not [x-...] - copy verbatim */
 				*buffer++ = '[';
-				arg -= 2;
-				continue;
+				arg--; /* points to x */
+				continue; /* copy all, including eventual ']' */
 			}
+			/* [x-y...] */
+			arg++;
 			ac = *arg++;
 			while (i <= ac)
 				*buffer++ = i++;
-			arg++;	/* Skip the assumed ']' */
-		} else
-			*buffer++ = *arg++;
+			arg++;	/* skip the assumed ']' */
+			continue;
+		}
+		*buffer++ = *arg++;
 	}
 	return (buffer - buffer_start);
 }
@@ -154,7 +162,7 @@ static int complement(char *buffer, int buffer_len)
 	char conv[ASCII + 2];
 
 	ix = 0;
-	for (i = 0; i <= ASCII; i++) {
+	for (i = '\0'; i <= ASCII; i++) {
 		for (j = 0; j < buffer_len; j++)
 			if (buffer[j] == i)
 				break;
@@ -165,47 +173,42 @@ static int complement(char *buffer, int buffer_len)
 	return ix;
 }
 
-int tr_main(int argc, char **argv);
-int tr_main(int argc, char **argv)
+int tr_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int tr_main(int argc ATTRIBUTE_UNUSED, char **argv)
 {
-	unsigned char *ptr;
 	int output_length = 0, input_length;
-	int idx = 1;
 	int i;
-	smalluint flags = 0;
-	size_t read_chars = 0, in_index = 0, out_index = 0, c, coded, last = -1;
-	RESERVE_CONFIG_UBUFFER(output, BUFSIZ);
-	RESERVE_CONFIG_BUFFER(vector, ASCII+1);
-	RESERVE_CONFIG_BUFFER(invec,  ASCII+1);
-	RESERVE_CONFIG_BUFFER(outvec, ASCII+1);
+	smalluint flags;
+	ssize_t read_chars = 0;
+	size_t in_index = 0, out_index = 0;
+	unsigned last = UCHAR_MAX + 1; /* not equal to any char */
+	unsigned char coded, c;
+	unsigned char *output = xmalloc(BUFSIZ);
+	char *vector = xzalloc((ASCII+1) * 3);
+	char *invec  = vector + (ASCII+1);
+	char *outvec = vector + (ASCII+1) * 2;
 
-	if (argc > 1 && argv[idx][0] == '-') {
-		for (ptr = (unsigned char *) &argv[idx][1]; *ptr; ptr++) {
-			if (*ptr == 'c')
-				flags |= TR_OPT_complement;
-			else if (*ptr == 'd')
-				flags |= TR_OPT_delete;
-			else if (*ptr == 's')
-				flags |= TR_OPT_squeeze_reps;
-			else
-				bb_show_usage();
-		}
-		idx++;
-	}
+#define TR_OPT_complement	(1 << 0)
+#define TR_OPT_delete		(1 << 1)
+#define TR_OPT_squeeze_reps	(1 << 2)
+
+	flags = getopt32(argv, "+cds"); /* '+': stop at first non-option */
+	argv += optind;
+
 	for (i = 0; i <= ASCII; i++) {
 		vector[i] = i;
-		invec[i] = outvec[i] = FALSE;
+		/*invec[i] = outvec[i] = FALSE; - done by xzalloc */
 	}
 
 #define tr_buf bb_common_bufsiz1
-	if (argv[idx] != NULL) {
-		input_length = expand(argv[idx++], tr_buf);
+	if (*argv != NULL) {
+		input_length = expand(*argv++, tr_buf);
 		if (flags & TR_OPT_complement)
 			input_length = complement(tr_buf, input_length);
-		if (argv[idx] != NULL) {
-			if (*argv[idx] == '\0')
+		if (*argv) {
+			if (argv[0][0] == '\0')
 				bb_error_msg_and_die("STRING2 cannot be empty");
-			output_length = expand(argv[idx], output);
+			output_length = expand(*argv, output);
 			map(vector, tr_buf, input_length, output, output_length);
 		}
 		for (i = 0; i < input_length; i++)
@@ -221,10 +224,10 @@ int tr_main(int argc, char **argv)
 				xwrite(STDOUT_FILENO, (char *)output, out_index);
 				out_index = 0;
 			}
-			read_chars = read(STDIN_FILENO, tr_buf, BUFSIZ);
+			read_chars = safe_read(STDIN_FILENO, tr_buf, BUFSIZ);
 			if (read_chars <= 0) {
-				if (write(STDOUT_FILENO, (char *)output, out_index) != out_index)
-					bb_perror_msg(bb_msg_write_error);
+				if (read_chars < 0)
+					bb_perror_msg_and_die(bb_msg_read_error);
 				exit(EXIT_SUCCESS);
 			}
 			in_index = 0;
@@ -233,8 +236,8 @@ int tr_main(int argc, char **argv)
 		coded = vector[c];
 		if ((flags & TR_OPT_delete) && invec[c])
 			continue;
-		if ((flags & TR_OPT_squeeze_reps) && last == coded &&
-			(invec[c] || outvec[coded]))
+		if ((flags & TR_OPT_squeeze_reps) && last == coded
+		 && (invec[c] || outvec[coded]))
 			continue;
 		output[out_index++] = last = coded;
 	}

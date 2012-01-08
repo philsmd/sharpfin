@@ -1,1 +1,1 @@
-#undef CONFIG_ED
+#define CONFIG_ED 1

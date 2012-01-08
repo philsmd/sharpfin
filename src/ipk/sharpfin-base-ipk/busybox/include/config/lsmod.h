@@ -1,1 +1,1 @@
-#undef CONFIG_LSMOD
+#define CONFIG_LSMOD 1

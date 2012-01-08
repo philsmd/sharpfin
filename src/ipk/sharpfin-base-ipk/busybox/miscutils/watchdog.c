@@ -13,47 +13,59 @@
 #define OPT_FOREGROUND 0x01
 #define OPT_TIMER      0x02
 
-static void watchdog_shutdown(int ATTRIBUTE_UNUSED sig) ATTRIBUTE_NORETURN;
-static void watchdog_shutdown(int ATTRIBUTE_UNUSED sig)
+static void watchdog_shutdown(int sig ATTRIBUTE_UNUSED)
 {
-	write(3, "V", 1);	/* Magic, see watchdog-api.txt in kernel */
+	static const char V = 'V';
+
+	write(3, &V, 1);	/* Magic, see watchdog-api.txt in kernel */
 	if (ENABLE_FEATURE_CLEAN_UP)
 		close(3);
 	exit(0);
 }
 
-int watchdog_main(int argc, char **argv);
+int watchdog_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int watchdog_main(int argc, char **argv)
 {
 	unsigned opts;
-	unsigned timer_duration = 30; /* Userspace timer duration, in seconds */
+	unsigned timer_duration = 30000; /* Userspace timer duration, in milliseconds */
 	char *t_arg;
 
 	opt_complementary = "=1"; /* must have 1 argument */
 	opts = getopt32(argv, "Ft:", &t_arg);
 
-	if (opts & OPT_TIMER)
-		timer_duration = xatou(t_arg);
+	if (opts & OPT_TIMER) {
+		static const struct suffix_mult suffixes[] = {
+			{ "ms", 1 },
+			{ "", 1000 },
+			{ }
+		};
+		timer_duration = xatou_sfx(t_arg, suffixes);
+	}
 
 	if (!(opts & OPT_FOREGROUND)) {
 		bb_daemonize_or_rexec(DAEMON_CHDIR_ROOT, argv);
 	}
 
-	signal(SIGHUP, watchdog_shutdown);
-	signal(SIGINT, watchdog_shutdown);
+	bb_signals(BB_FATAL_SIGS, watchdog_shutdown);
 
 	/* Use known fd # - avoid needing global 'int fd' */
 	xmove_fd(xopen(argv[argc - 1], O_WRONLY), 3);
+
+// TODO?
+//	if (!(opts & OPT_TIMER)) {
+//		if (ioctl(fd, WDIOC_GETTIMEOUT, &timer_duration) == 0)
+//			timer_duration *= 500;
+//		else
+//			timer_duration = 30000;
+//	}
 
 	while (1) {
 		/*
 		 * Make sure we clear the counter before sleeping, as the counter value
 		 * is undefined at this point -- PFM
 		 */
-		write(3, "", 1);
-		sleep(timer_duration);
+		write(3, "", 1); /* write zero byte */
+		usleep(timer_duration * 1000L);
 	}
-
-	watchdog_shutdown(0);
-	/* return EXIT_SUCCESS; */
+	return EXIT_SUCCESS; /* - not reached, but gcc 4.2.1 is too dumb! */
 }

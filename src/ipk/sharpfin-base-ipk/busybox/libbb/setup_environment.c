@@ -30,42 +30,41 @@
 
 #include "libbb.h"
 
-void setup_environment(const char *shell, int loginshell, int changeenv, const struct passwd *pw)
+void setup_environment(const char *shell, int clear_env, int change_env, const struct passwd *pw)
 {
-	if (loginshell) {
+	if (clear_env) {
 		const char *term;
 
 		/* Change the current working directory to be the home directory
-		 * of the user.  It is a fatal error for this process to be unable
-		 * to change to that directory.  There is no "default" home
-		 * directory.
-		 * Some systems default to HOME=/
-		 */
+		 * of the user */
 		if (chdir(pw->pw_dir)) {
 			xchdir("/");
-			fputs("warning: cannot change to home directory\n", stderr);
+			bb_error_msg("can't chdir to home directory '%s'", pw->pw_dir);
 		}
 
-		/* Leave TERM unchanged.  Set HOME, SHELL, USER, LOGNAME, PATH.
+		/* Leave TERM unchanged. Set HOME, SHELL, USER, LOGNAME, PATH.
 		   Unset all other environment variables.  */
 		term = getenv("TERM");
 		clearenv();
 		if (term)
 			xsetenv("TERM", term);
-		xsetenv("HOME",    pw->pw_dir);
-		xsetenv("SHELL",   shell);
-		xsetenv("USER",    pw->pw_name);
-		xsetenv("LOGNAME", pw->pw_name);
-		xsetenv("PATH",   (pw->pw_uid ? bb_default_path : bb_default_root_path));
+		xsetenv("PATH", (pw->pw_uid ? bb_default_path : bb_default_root_path));
+		goto shortcut;
+		// No, gcc (4.2.1) is not clever enougn to do it itself.
+		//xsetenv("USER",    pw->pw_name);
+		//xsetenv("LOGNAME", pw->pw_name);
+		//xsetenv("HOME",    pw->pw_dir);
+		//xsetenv("SHELL",   shell);
 	}
-	else if (changeenv) {
+	else if (change_env) {
 		/* Set HOME, SHELL, and if not becoming a super-user,
 		   USER and LOGNAME.  */
-		xsetenv("HOME",  pw->pw_dir);
-		xsetenv("SHELL", shell);
 		if (pw->pw_uid) {
+ shortcut:
 			xsetenv("USER",    pw->pw_name);
 			xsetenv("LOGNAME", pw->pw_name);
 		}
+		xsetenv("HOME",    pw->pw_dir);
+		xsetenv("SHELL",   shell);
 	}
 }

@@ -1,1 +1,1 @@
-#undef CONFIG_RUNLEVEL
+#define CONFIG_RUNLEVEL 1

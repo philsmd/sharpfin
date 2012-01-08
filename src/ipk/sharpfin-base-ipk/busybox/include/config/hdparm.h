@@ -1,1 +1,1 @@
-#undef CONFIG_HDPARM
+#define CONFIG_HDPARM 1

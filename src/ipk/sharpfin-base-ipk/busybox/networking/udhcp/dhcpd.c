@@ -12,17 +12,18 @@
 
 #include <syslog.h>
 #include "common.h"
+#include "dhcpc.h"
 #include "dhcpd.h"
 #include "options.h"
 
 
 /* globals */
 struct dhcpOfferedAddr *leases;
-struct server_config_t server_config;
+/* struct server_config_t server_config is in bb_common_bufsiz1 */
 
 
-int udhcpd_main(int argc, char **argv);
-int udhcpd_main(int argc, char **argv)
+int udhcpd_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int udhcpd_main(int argc ATTRIBUTE_UNUSED, char **argv)
 {
 	fd_set rfds;
 	struct timeval tv;
@@ -35,8 +36,14 @@ int udhcpd_main(int argc, char **argv)
 	unsigned opt;
 	struct option_set *option;
 	struct dhcpOfferedAddr *lease, static_lease;
+	USE_FEATURE_UDHCP_PORT(char *str_P;)
 
-	opt = getopt32(argv, "fS");
+#if ENABLE_FEATURE_UDHCP_PORT
+	SERVER_PORT = 67;
+	CLIENT_PORT = 68;
+#endif
+
+	opt = getopt32(argv, "fS" USE_FEATURE_UDHCP_PORT("P:", &str_P));
 	argv += optind;
 
 	if (!(opt & 1)) { /* no -f */
@@ -48,7 +55,12 @@ int udhcpd_main(int argc, char **argv)
 		openlog(applet_name, LOG_PID, LOG_LOCAL0);
 		logmode |= LOGMODE_SYSLOG;
 	}
-
+#if ENABLE_FEATURE_UDHCP_PORT
+	if (opt & 4) { /* -P */
+		SERVER_PORT = xatou16(str_P);
+		CLIENT_PORT = SERVER_PORT + 1;
+	}
+#endif
 	/* Would rather not do read_config before daemonization -
 	 * otherwise NOMMU machines will parse config twice */
 	read_config(argv[0] ? argv[0] : DHCPD_CONF_FILE);
@@ -62,7 +74,7 @@ int udhcpd_main(int argc, char **argv)
 	write_pidfile(server_config.pidfile);
 	/* if (!..) bb_perror_msg("cannot create pidfile %s", pidfile); */
 
-	bb_info_msg("%s (v%s) started", applet_name, BB_VER);
+	bb_info_msg("%s (v"BB_VER") started", applet_name);
 
 	option = find_option(server_config.options, DHCP_LEASE_TIME);
 	server_config.lease = LEASE_TIME;
@@ -133,7 +145,7 @@ int udhcpd_main(int argc, char **argv)
 		default: continue;	/* signal or error (probably EINTR) */
 		}
 
-		bytes = udhcp_get_packet(&packet, server_socket); /* this waits for a packet - idle */
+		bytes = udhcp_recv_packet(&packet, server_socket); /* this waits for a packet - idle */
 		if (bytes < 0) {
 			if (bytes == -1 && errno != EINTR) {
 				DEBUG("error on read, %s, reopening socket", strerror(errno));

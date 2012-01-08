@@ -1,1 +1,1 @@
-#undef CONFIG_CPIO
+#define CONFIG_CPIO 1

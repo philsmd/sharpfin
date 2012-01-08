@@ -7,6 +7,7 @@
 lib-y:=
 lib-$(CONFIG_ADJTIMEX)    += adjtimex.o
 lib-$(CONFIG_BBCONFIG)    += bbconfig.o
+lib-$(CONFIG_CHAT)        += chat.o
 lib-$(CONFIG_CHRT)        += chrt.o
 lib-$(CONFIG_CROND)       += crond.o
 lib-$(CONFIG_CRONTAB)     += crontab.o
@@ -17,6 +18,7 @@ lib-$(CONFIG_HDPARM)      += hdparm.o
 lib-$(CONFIG_LAST)        += last.o
 lib-$(CONFIG_LESS)        += less.o
 lib-$(CONFIG_MAKEDEVS)    += makedevs.o
+lib-$(CONFIG_MICROCOM)    += microcom.o
 lib-$(CONFIG_MOUNTPOINT)  += mountpoint.o
 lib-$(CONFIG_MT)          += mt.o
 lib-$(CONFIG_RAIDAUTORUN) += raidautorun.o

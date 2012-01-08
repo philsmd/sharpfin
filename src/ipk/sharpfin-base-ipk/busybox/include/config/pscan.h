@@ -1,1 +1,1 @@
-#undef CONFIG_PSCAN
+#define CONFIG_PSCAN 1

@@ -1,1 +1,1 @@
-#undef CONFIG_MV
+#define CONFIG_MV 1

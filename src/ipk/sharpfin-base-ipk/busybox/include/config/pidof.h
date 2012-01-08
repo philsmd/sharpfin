@@ -1,1 +1,1 @@
-#undef CONFIG_PIDOF
+#define CONFIG_PIDOF 1

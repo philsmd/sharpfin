@@ -23,7 +23,11 @@
 #include "libbb.h"
 #include <setjmp.h>
 
-/* This is a NOEXEC applet. Be very careful! */
+/* This is a NOFORK applet. Be very careful! */
+
+/* test_main() is called from shells, and we need to be extra careful here.
+ * This is true regardless of PREFER_APPLETS and STANDALONE_SHELL
+ * state. */
 
 
 /* test(1) accepts the following grammar:
@@ -85,12 +89,12 @@ enum token {
 	RPAREN,
 	OPERAND
 };
-#define is_int_op(a) (((unsigned char)((a) - INTEQ)) <= 5)
-#define is_str_op(a) (((unsigned char)((a) - STREZ)) <= 5)
-#define is_file_op(a) (((unsigned char)((a) - FILNT)) <= 2)
+#define is_int_op(a)      (((unsigned char)((a) - INTEQ)) <= 5)
+#define is_str_op(a)      (((unsigned char)((a) - STREZ)) <= 5)
+#define is_file_op(a)     (((unsigned char)((a) - FILNT)) <= 2)
 #define is_file_access(a) (((unsigned char)((a) - FILRD)) <= 2)
-#define is_file_type(a) (((unsigned char)((a) - FILREG)) <= 5)
-#define is_file_bit(a) (((unsigned char)((a) - FILSUID)) <= 2)
+#define is_file_type(a)   (((unsigned char)((a) - FILREG)) <= 5)
+#define is_file_bit(a)    (((unsigned char)((a) - FILSUID)) <= 2)
 enum token_types {
 	UNOP,
 	BINOP,
@@ -153,98 +157,36 @@ typedef int64_t arith_t;
 typedef int arith_t;
 #endif
 
-/* Cannot eliminate these static data (do the G trick)
- * because of test_main usage from other applets */
-static char **t_wp;
-static struct t_op const *t_wp_op;
-static gid_t *group_array;
-static int ngroups;
-static jmp_buf leaving;
 
-static enum token t_lex(char *s);
-static arith_t oexpr(enum token n);
-static arith_t aexpr(enum token n);
-static arith_t nexpr(enum token n);
-static int binop(void);
+/* We try to minimize both static and stack usage. */
+struct statics {
+	char **t_wp;
+	const struct t_op *t_wp_op;
+	gid_t *group_array;
+	int ngroups;
+	jmp_buf leaving;
+};
+
+/* Make it reside in writable memory, yet make compiler understand
+ * that it is not going to change. */
+static struct statics *const ptr_to_statics __attribute__ ((section (".data")));
+
+#define S (*ptr_to_statics)
+#define t_wp            (S.t_wp         )
+#define t_wp_op         (S.t_wp_op      )
+#define group_array     (S.group_array  )
+#define ngroups         (S.ngroups      )
+#define leaving         (S.leaving      )
+
+#define INIT_S() do { \
+	(*(struct statics**)&ptr_to_statics) = xzalloc(sizeof(S)); \
+	barrier(); \
+} while (0)
+#define DEINIT_S() do { \
+	free(ptr_to_statics); \
+} while (0)
+
 static arith_t primary(enum token n);
-static int filstat(char *nm, enum token mode);
-static arith_t getn(const char *s);
-/* UNUSED
-static int newerf(const char *f1, const char *f2);
-static int olderf(const char *f1, const char *f2);
-static int equalf(const char *f1, const char *f2);
-*/
-static int test_eaccess(char *path, int mode);
-static int is_a_group_member(gid_t gid);
-static void initialize_group_array(void);
-
-int test_main(int argc, char **argv)
-{
-	int res;
-	const char *arg0;
-	bool _off;
-
-	arg0 = bb_basename(argv[0]);
-	if (arg0[0] == '[') {
-		--argc;
-		if (!arg0[1]) { /* "[" ? */
-			if (NOT_LONE_CHAR(argv[argc], ']')) {
-				bb_error_msg("missing ]");
-				return 2;
-			}
-		} else { /* assuming "[[" */
-			if (strcmp(argv[argc], "]]") != 0) {
-				bb_error_msg("missing ]]");
-				return 2;
-			}
-		}
-		argv[argc] = NULL;
-	}
-
-	res = setjmp(leaving);
-	if (res)
-		return res;
-
-	/* resetting ngroups is probably unnecessary.  it will
-	 * force a new call to getgroups(), which prevents using
-	 * group data fetched during a previous call.  but the
-	 * only way the group data could be stale is if there's
-	 * been an intervening call to setgroups(), and this
-	 * isn't likely in the case of a shell.  paranoia
-	 * prevails...
-	 */
-	ngroups = 0;
-
-	/* Implement special cases from POSIX.2, section 4.62.4 */
-	if (argc == 1)
-		return 1;
-	if (argc == 2)
-		return *argv[1] == '\0';
-//assert(argc);
-	/* remember if we saw argc==4 which wants *no* '!' test */
-	_off = argc - 4;
-	if (_off ?
-		(LONE_CHAR(argv[1], '!'))
-		: (argv[1][0] != '!' || argv[1][1] != '\0'))
-	{
-		if (argc == 3)
-			return *argv[2] != '\0';
-
-		t_lex(argv[2 + _off]);
-		if (t_wp_op && t_wp_op->op_type == BINOP) {
-			t_wp = &argv[1 + _off];
-			return binop() == _off;
-		}
-	}
-	t_wp = &argv[1];
-	res = !oexpr(t_lex(*t_wp));
-
-	if (*t_wp != NULL && *++t_wp != NULL) {
-		bb_error_msg("%s: unknown operand", *t_wp);
-		return 2;
-	}
-	return res;
-}
 
 static void syntax(const char *op, const char *msg) ATTRIBUTE_NORETURN;
 static void syntax(const char *op, const char *msg)
@@ -257,69 +199,82 @@ static void syntax(const char *op, const char *msg)
 	longjmp(leaving, 2);
 }
 
-static arith_t oexpr(enum token n)
+/* atoi with error detection */
+//XXX: FIXME: duplicate of existing libbb function?
+static arith_t getn(const char *s)
 {
-	arith_t res;
+	char *p;
+#if ENABLE_FEATURE_TEST_64
+	long long r;
+#else
+	long r;
+#endif
 
-	res = aexpr(n);
-	if (t_lex(*++t_wp) == BOR) {
-		return oexpr(t_lex(*++t_wp)) || res;
-	}
-	t_wp--;
-	return res;
+	errno = 0;
+#if ENABLE_FEATURE_TEST_64
+	r = strtoll(s, &p, 10);
+#else
+	r = strtol(s, &p, 10);
+#endif
+
+	if (errno != 0)
+		syntax(s, "out of range");
+
+	if (*(skip_whitespace(p)))
+		syntax(s, "bad number");
+
+	return r;
 }
 
-static arith_t aexpr(enum token n)
+/* UNUSED
+static int newerf(const char *f1, const char *f2)
 {
-	arith_t res;
+	struct stat b1, b2;
 
-	res = nexpr(n);
-	if (t_lex(*++t_wp) == BAND)
-		return aexpr(t_lex(*++t_wp)) && res;
-	t_wp--;
-	return res;
+	return (stat(f1, &b1) == 0 &&
+			stat(f2, &b2) == 0 && b1.st_mtime > b2.st_mtime);
 }
 
-static arith_t nexpr(enum token n)
+static int olderf(const char *f1, const char *f2)
 {
-	if (n == UNOT)
-		return !nexpr(t_lex(*++t_wp));
-	return primary(n);
+	struct stat b1, b2;
+
+	return (stat(f1, &b1) == 0 &&
+			stat(f2, &b2) == 0 && b1.st_mtime < b2.st_mtime);
 }
 
-static arith_t primary(enum token n)
+static int equalf(const char *f1, const char *f2)
 {
-	arith_t res;
+	struct stat b1, b2;
 
-	if (n == EOI) {
-		syntax(NULL, "argument expected");
-	}
-	if (n == LPAREN) {
-		res = oexpr(t_lex(*++t_wp));
-		if (t_lex(*++t_wp) != RPAREN)
-			syntax(NULL, "closing paren expected");
-		return res;
-	}
-	if (t_wp_op && t_wp_op->op_type == UNOP) {
-		/* unary expression */
-		if (*++t_wp == NULL)
-			syntax(t_wp_op->op_text, "argument expected");
-		if (n == STREZ)
-			return t_wp[0][0] == '\0';
-		if (n == STRNZ)
-			return t_wp[0][0] != '\0';
-		if (n == FILTT)
-			return isatty(getn(*t_wp));
-		return filstat(*t_wp, n);
-	}
-
-	t_lex(t_wp[1]);
-	if (t_wp_op && t_wp_op->op_type == BINOP) {
-		return binop();
-	}
-
-	return t_wp[0][0] != '\0';
+	return (stat(f1, &b1) == 0 &&
+			stat(f2, &b2) == 0 &&
+			b1.st_dev == b2.st_dev && b1.st_ino == b2.st_ino);
 }
+*/
+
+
+static enum token t_lex(char *s)
+{
+	const struct t_op *op;
+
+	t_wp_op = NULL;
+	if (s == NULL) {
+		return EOI;
+	}
+
+	op = ops;
+	do {
+		if (strcmp(s, op->op_text) == 0) {
+			t_wp_op = op;
+			return op->op_num;
+		}
+		op++;
+	} while (op < ops + ARRAY_SIZE(ops));
+
+	return OPERAND;
+}
+
 
 static int binop(void)
 {
@@ -380,6 +335,80 @@ static int binop(void)
 	}
 	return 1; /* NOTREACHED */
 }
+
+
+static void initialize_group_array(void)
+{
+	ngroups = getgroups(0, NULL);
+	if (ngroups > 0) {
+		/* FIXME: ash tries so hard to not die on OOM,
+		 * and we spoil it with just one xrealloc here */
+		/* We realloc, because test_main can be entered repeatedly by shell.
+		 * Testcase (ash): 'while true; do test -x some_file; done'
+		 * and watch top. (some_file must have owner != you) */
+		group_array = xrealloc(group_array, ngroups * sizeof(gid_t));
+		getgroups(ngroups, group_array);
+	}
+}
+
+
+/* Return non-zero if GID is one that we have in our groups list. */
+//XXX: FIXME: duplicate of existing libbb function?
+// see toplevel TODO file:
+// possible code duplication ingroup() and is_a_group_member()
+static int is_a_group_member(gid_t gid)
+{
+	int i;
+
+	/* Short-circuit if possible, maybe saving a call to getgroups(). */
+	if (gid == getgid() || gid == getegid())
+		return 1;
+
+	if (ngroups == 0)
+		initialize_group_array();
+
+	/* Search through the list looking for GID. */
+	for (i = 0; i < ngroups; i++)
+		if (gid == group_array[i])
+			return 1;
+
+	return 0;
+}
+
+
+/* Do the same thing access(2) does, but use the effective uid and gid,
+   and don't make the mistake of telling root that any file is
+   executable. */
+static int test_eaccess(char *path, int mode)
+{
+	struct stat st;
+	unsigned int euid = geteuid();
+
+	if (stat(path, &st) < 0)
+		return -1;
+
+	if (euid == 0) {
+		/* Root can read or write any file. */
+		if (mode != X_OK)
+			return 0;
+
+		/* Root can execute any file that has any one of the execute
+		   bits set. */
+		if (st.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH))
+			return 0;
+	}
+
+	if (st.st_uid == euid)  /* owner */
+		mode <<= 6;
+	else if (is_a_group_member(st.st_gid))
+		mode <<= 3;
+
+	if (st.st_mode & mode)
+		return 0;
+
+	return -1;
+}
+
 
 static int filstat(char *nm, enum token mode)
 {
@@ -453,147 +482,157 @@ static int filstat(char *nm, enum token mode)
 	return 1; /* NOTREACHED */
 }
 
-static enum token t_lex(char *s)
-{
-	const struct t_op *op;
 
-	t_wp_op = NULL;
-	if (s == NULL) {
-		return EOI;
+static arith_t nexpr(enum token n)
+{
+	if (n == UNOT)
+		return !nexpr(t_lex(*++t_wp));
+	return primary(n);
+}
+
+
+static arith_t aexpr(enum token n)
+{
+	arith_t res;
+
+	res = nexpr(n);
+	if (t_lex(*++t_wp) == BAND)
+		return aexpr(t_lex(*++t_wp)) && res;
+	t_wp--;
+	return res;
+}
+
+
+static arith_t oexpr(enum token n)
+{
+	arith_t res;
+
+	res = aexpr(n);
+	if (t_lex(*++t_wp) == BOR) {
+		return oexpr(t_lex(*++t_wp)) || res;
+	}
+	t_wp--;
+	return res;
+}
+
+
+
+static arith_t primary(enum token n)
+{
+	arith_t res;
+
+	if (n == EOI) {
+		syntax(NULL, "argument expected");
+	}
+	if (n == LPAREN) {
+		res = oexpr(t_lex(*++t_wp));
+		if (t_lex(*++t_wp) != RPAREN)
+			syntax(NULL, "closing paren expected");
+		return res;
+	}
+	if (t_wp_op && t_wp_op->op_type == UNOP) {
+		/* unary expression */
+		if (*++t_wp == NULL)
+			syntax(t_wp_op->op_text, "argument expected");
+		if (n == STREZ)
+			return t_wp[0][0] == '\0';
+		if (n == STRNZ)
+			return t_wp[0][0] != '\0';
+		if (n == FILTT)
+			return isatty(getn(*t_wp));
+		return filstat(*t_wp, n);
 	}
 
-	op = ops;
-	do {
-		if (strcmp(s, op->op_text) == 0) {
-			t_wp_op = op;
-			return op->op_num;
+	t_lex(t_wp[1]);
+	if (t_wp_op && t_wp_op->op_type == BINOP) {
+		return binop();
+	}
+
+	return t_wp[0][0] != '\0';
+}
+
+
+int test_main(int argc, char **argv)
+{
+	int res;
+	const char *arg0;
+	bool negate = 0;
+
+	arg0 = bb_basename(argv[0]);
+	if (arg0[0] == '[') {
+		--argc;
+		if (!arg0[1]) { /* "[" ? */
+			if (NOT_LONE_CHAR(argv[argc], ']')) {
+				bb_error_msg("missing ]");
+				return 2;
+			}
+		} else { /* assuming "[[" */
+			if (strcmp(argv[argc], "]]") != 0) {
+				bb_error_msg("missing ]]");
+				return 2;
+			}
 		}
-		op++;
-	} while (op < ops + ARRAY_SIZE(ops));
-
-	return OPERAND;
-}
-
-/* atoi with error detection */
-//XXX: FIXME: duplicate of existing libbb function?
-static arith_t getn(const char *s)
-{
-	char *p;
-#if ENABLE_FEATURE_TEST_64
-	long long r;
-#else
-	long r;
-#endif
-
-	errno = 0;
-#if ENABLE_FEATURE_TEST_64
-	r = strtoll(s, &p, 10);
-#else
-	r = strtol(s, &p, 10);
-#endif
-
-	if (errno != 0)
-		syntax(s, "out of range");
-
-	if (*(skip_whitespace(p)))
-		syntax(s, "bad number");
-
-	return r;
-}
-
-/* UNUSED
-static int newerf(const char *f1, const char *f2)
-{
-	struct stat b1, b2;
-
-	return (stat(f1, &b1) == 0 &&
-			stat(f2, &b2) == 0 && b1.st_mtime > b2.st_mtime);
-}
-
-static int olderf(const char *f1, const char *f2)
-{
-	struct stat b1, b2;
-
-	return (stat(f1, &b1) == 0 &&
-			stat(f2, &b2) == 0 && b1.st_mtime < b2.st_mtime);
-}
-
-static int equalf(const char *f1, const char *f2)
-{
-	struct stat b1, b2;
-
-	return (stat(f1, &b1) == 0 &&
-			stat(f2, &b2) == 0 &&
-			b1.st_dev == b2.st_dev && b1.st_ino == b2.st_ino);
-}
-*/
-
-/* Do the same thing access(2) does, but use the effective uid and gid,
-   and don't make the mistake of telling root that any file is
-   executable. */
-static int test_eaccess(char *path, int mode)
-{
-	struct stat st;
-	unsigned int euid = geteuid();
-
-	if (stat(path, &st) < 0)
-		return -1;
-
-	if (euid == 0) {
-		/* Root can read or write any file. */
-		if (mode != X_OK)
-			return 0;
-
-		/* Root can execute any file that has any one of the execute
-		   bits set. */
-		if (st.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH))
-			return 0;
+		argv[argc] = NULL;
 	}
 
-	if (st.st_uid == euid)  /* owner */
-		mode <<= 6;
-	else if (is_a_group_member(st.st_gid))
-		mode <<= 3;
+	/* We must do DEINIT_S() prior to returning */
+	INIT_S();
 
-	if (st.st_mode & mode)
-		return 0;
+	res = setjmp(leaving);
+	if (res)
+		goto ret;
 
-	return -1;
-}
+	/* resetting ngroups is probably unnecessary.  it will
+	 * force a new call to getgroups(), which prevents using
+	 * group data fetched during a previous call.  but the
+	 * only way the group data could be stale is if there's
+	 * been an intervening call to setgroups(), and this
+	 * isn't likely in the case of a shell.  paranoia
+	 * prevails...
+	 */
+	ngroups = 0;
 
-static void initialize_group_array(void)
-{
-	ngroups = getgroups(0, NULL);
-	if (ngroups > 0) {
-		/* FIXME: ash tries so hard to not die on OOM,
-		 * and we spoil it with just one xrealloc here */
-		/* We realloc, because test_main can be entered repeatedly by shell.
-		 * Testcase (ash): 'while true; do test -x some_file; done'
-		 * and watch top. (some_file must have owner != you) */
-		group_array = xrealloc(group_array, ngroups * sizeof(gid_t));
-		getgroups(ngroups, group_array);
+	//argc--;
+	argv++;
+
+	/* Implement special cases from POSIX.2, section 4.62.4 */
+	if (!argv[0]) { /* "test" */
+		res = 1;
+		goto ret;
 	}
-}
+	if (LONE_CHAR(argv[0], '!') && argv[1]) {
+		negate = 1;
+		//argc--;
+		argv++;
+	}
+	if (!argv[1]) { /* "test [!] arg" */
+		res = (*argv[0] == '\0');
+		goto ret;
+	}
+	if (argv[2] && !argv[3]) {
+		t_lex(argv[1]);
+		if (t_wp_op && t_wp_op->op_type == BINOP) {
+			/* "test [!] arg1 <binary_op> arg2" */
+			t_wp = &argv[0];
+			res = (binop() == 0);
+			goto ret;
+		}
+	}
 
-/* Return non-zero if GID is one that we have in our groups list. */
-//XXX: FIXME: duplicate of existing libbb function?
-// see toplevel TODO file:
-// possible code duplication ingroup() and is_a_group_member()
-static int is_a_group_member(gid_t gid)
-{
-	int i;
+	/* Some complex expression. Undo '!' removal */
+	if (negate) {
+		negate = 0;
+		//argc++;
+		argv--;
+	}
+	t_wp = &argv[0];
+	res = !oexpr(t_lex(*t_wp));
 
-	/* Short-circuit if possible, maybe saving a call to getgroups(). */
-	if (gid == getgid() || gid == getegid())
-		return 1;
-
-	if (ngroups == 0)
-		initialize_group_array();
-
-	/* Search through the list looking for GID. */
-	for (i = 0; i < ngroups; i++)
-		if (gid == group_array[i])
-			return 1;
-
-	return 0;
+	if (*t_wp != NULL && *++t_wp != NULL) {
+		bb_error_msg("%s: unknown operand", *t_wp);
+		res = 2;
+	}
+ ret:
+	DEINIT_S();
+	return negate ? !res : res;
 }

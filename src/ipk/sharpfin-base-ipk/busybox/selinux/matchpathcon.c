@@ -17,7 +17,7 @@ static int print_matchpathcon(char *path, int noprint)
 	if (!noprint)
 		printf("%s\t%s\n", path, buf);
 	else
-		printf("%s\n", buf);
+		puts(buf);
 
 	freecon(buf);
 	return 0;
@@ -29,8 +29,8 @@ static int print_matchpathcon(char *path, int noprint)
 #define OPT_PREFIX      (1<<3)  /* -p */
 #define OPT_VERIFY      (1<<4)  /* -V */
 
-int matchpathcon_main(int argc, char **argv);
-int matchpathcon_main(int argc, char **argv)
+int matchpathcon_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int matchpathcon_main(int argc ATTRIBUTE_UNUSED, char **argv)
 {
 	int error = 0;
 	unsigned opts;

@@ -1,1 +1,1 @@
-#undef CONFIG_XARGS
+#define CONFIG_XARGS 1

@@ -20,6 +20,12 @@
 #include <linux/if_ether.h>
 #endif
 
+#ifdef UNUSED
+/* Before re-enabling this, please (1) conditionalize exotic protocols
+ * on CONFIG_something, and (2) decouple strings and numbers
+ * (use llproto_ids[] = n,n,n..; and llproto_names[] = "loop\0" "pup\0" ...;)
+ */
+
 #define __PF(f,n) { ETH_P_##f, #n },
 static struct {
 	int id;
@@ -90,13 +96,13 @@ __PF(ECONET,econet)
 #undef __PF
 
 
-const char * ll_proto_n2a(unsigned short id, char *buf, int len)
+const char *ll_proto_n2a(unsigned short id, char *buf, int len)
 {
 	int i;
 
 	id = ntohs(id);
 
-	for (i=0; i < ARRAY_SIZE(llproto_names); i++) {
+	for (i = 0; i < ARRAY_SIZE(llproto_names); i++) {
 		 if (llproto_names[i].id == id)
 			return llproto_names[i].name;
 	}
@@ -107,7 +113,7 @@ const char * ll_proto_n2a(unsigned short id, char *buf, int len)
 int ll_proto_a2n(unsigned short *id, char *buf)
 {
 	int i;
-	for (i=0; i < ARRAY_SIZE(llproto_names); i++) {
+	for (i = 0; i < ARRAY_SIZE(llproto_names); i++) {
 		 if (strcasecmp(llproto_names[i].name, buf) == 0) {
 			 *id = htons(llproto_names[i].id);
 			 return 0;
@@ -118,3 +124,5 @@ int ll_proto_a2n(unsigned short *id, char *buf)
 	*id = htons(*id);
 	return 0;
 }
+
+#endif /* UNUSED */

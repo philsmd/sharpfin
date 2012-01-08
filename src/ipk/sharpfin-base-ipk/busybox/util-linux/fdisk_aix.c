@@ -29,8 +29,8 @@ typedef struct {
   *      Some fixes
 */
 
-static int aix_other_endian;
-static short aix_volumes = 1;
+static smallint aix_other_endian; /* bool */
+static smallint aix_volumes = 1; /* max 15 */
 
 /*
  * only dealing with free blocks here
@@ -63,7 +63,7 @@ check_aix_label(void)
 	aix_other_endian = (aixlabel->magic == AIX_LABEL_MAGIC_SWAPPED);
 	update_units();
 	current_label_type = label_aix;
-	partitions = 1016;
+	g_partitions = 1016;
 	aix_volumes = 15;
 	aix_info();
 	/*aix_nolabel();*/              /* %% */

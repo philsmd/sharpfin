@@ -8,25 +8,32 @@
  */
 
 #include "libbb.h"
-
-#if !defined CONFIG_SYSLOGD
-
+#ifndef CONFIG_SYSLOGD
 #define SYSLOG_NAMES
-#include <sys/syslog.h>
-
+#define SYSLOG_NAMES_CONST
+#include <syslog.h>
 #else
-#include <sys/syslog.h>
-#  ifndef __dietlibc__
-	/* We have to do this since the header file defines static
-	 * structures.  Argh.... bad libc, bad, bad...
-	 */
-	typedef struct _code {
-		char *c_name;
-		int c_val;
-	} CODE;
-	extern CODE prioritynames[];
-	extern CODE facilitynames[];
+/* brokenness alert. Everybody except dietlibc get's this wrong by neither
+ * providing a typedef nor an extern for facilitynames and prioritynames
+ * in syslog.h.
+ */
+# include <syslog.h>
+# ifndef __dietlibc__
+/* We have to do this since the header file does neither provide a sane type
+ * for this structure nor extern definitions.  Argh.... bad libc, bad, bad...
+ */
+typedef struct _code {
+	char *c_name; /* FIXME: this should be const char *const c_name ! */
+	int c_val;
+} CODE;
+#  ifdef __UCLIBC__
+extern const CODE prioritynames[];
+extern const CODE facilitynames[];
+#  else
+extern CODE prioritynames[];
+extern CODE facilitynames[];
 #  endif
+# endif
 #endif
 
 /* Decode a symbolic name to a numeric value
@@ -36,9 +43,9 @@
  *
  * Original copyright notice is retained at the end of this file.
  */
-static int decode(char *name, CODE * codetab)
+static int decode(char *name, const CODE *codetab)
 {
-	CODE *c;
+	const CODE *c;
 
 	if (isdigit(*name))
 		return atoi(name);
@@ -81,7 +88,7 @@ static int pencode(char *s)
 }
 
 
-int logger_main(int argc, char **argv);
+int logger_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int logger_main(int argc, char **argv)
 {
 	char *str_p, *str_t;
@@ -107,7 +114,7 @@ int logger_main(int argc, char **argv)
 	argv += optind;
 	if (!argc) {
 #define strbuf bb_common_bufsiz1
-		while (fgets(strbuf, BUFSIZ, stdin)) {
+		while (fgets(strbuf, COMMON_BUFSIZE, stdin)) {
 			if (strbuf[0]
 			 && NOT_LONE_CHAR(strbuf, '\n')
 			) {
@@ -117,11 +124,11 @@ int logger_main(int argc, char **argv)
 		}
 	} else {
 		char *message = NULL;
-		int len = 1; /* for NUL */
+		int len = 0;
 		int pos = 0;
 		do {
 			len += strlen(*argv) + 1;
-			message = xrealloc(message, len);
+			message = xrealloc(message, len + 1);
 			sprintf(message + pos, " %s", *argv),
 			pos = len;
 		} while (*++argv);

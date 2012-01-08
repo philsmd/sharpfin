@@ -1,1 +1,1 @@
-#undef CONFIG_NC_EXTRA
+#define CONFIG_NC_EXTRA 1

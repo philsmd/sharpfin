@@ -1,1 +1,1 @@
-#undef CONFIG_BB_SYSCTL
+#define CONFIG_BB_SYSCTL 1

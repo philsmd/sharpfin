@@ -6,7 +6,6 @@
 #include "libbb.h"
 #include <syslog.h>
 
-
 static void nuke_str(char *str)
 {
 	if (str) memset(str, 0, strlen(str));
@@ -70,8 +69,8 @@ static char* new_password(const struct passwd *pw, uid_t myuid, int algo)
 	return ret;
 }
 
-int passwd_main(int argc, char **argv);
-int passwd_main(int argc, char **argv)
+int passwd_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int passwd_main(int argc ATTRIBUTE_UNUSED, char **argv)
 {
 	enum {
 		OPT_algo = 0x1, /* -a - password algorithm */
@@ -93,11 +92,9 @@ int passwd_main(int argc, char **argv)
 	uid_t myuid;
 	struct rlimit rlimit_fsize;
 	char c;
-
 #if ENABLE_FEATURE_SHADOWPASSWDS
 	/* Using _r function to avoid pulling in static buffers */
 	struct spwd spw;
-	struct spwd *result;
 	char buffer[256];
 #endif
 
@@ -128,16 +125,19 @@ int passwd_main(int argc, char **argv)
 	}
 
 #if ENABLE_FEATURE_SHADOWPASSWDS
-	/* getspnam_r() can lie! Even if user isn't in shadow, it can
-	 * return success (pwd field was seen set to "!" in this case) */
-	if (getspnam_r(pw->pw_name, &spw, buffer, sizeof(buffer), &result)
-	 || LONE_CHAR(spw.sp_pwdp, '!')) {
-		/* LOGMODE_BOTH */
-		bb_error_msg("no record of %s in %s, using %s",
-				name, bb_path_shadow_file,
-				bb_path_passwd_file);
-	} else {
-		pw->pw_passwd = spw.sp_pwdp;
+	{
+		/* getspnam_r may return 0 yet set result to NULL.
+		 * At least glibc 2.4 does this. Be extra paranoid here. */
+		struct spwd *result = NULL;
+		if (getspnam_r(pw->pw_name, &spw, buffer, sizeof(buffer), &result)
+		 || !result || strcmp(result->sp_namp, pw->pw_name) != 0) {
+			/* LOGMODE_BOTH */
+			bb_error_msg("no record of %s in %s, using %s",
+					name, bb_path_shadow_file,
+					bb_path_passwd_file);
+		} else {
+			pw->pw_passwd = result->sp_pwdp;
+		}
 	}
 #endif
 
@@ -161,7 +161,7 @@ int passwd_main(int argc, char **argv)
 		newp = xasprintf("!%s", pw->pw_passwd);
 	} else if (opt & OPT_unlock) {
 		if (c) goto skip; /* not '!' */
-		/* pw->pw_passwd pints to static storage,
+		/* pw->pw_passwd points to static storage,
 		 * strdup'ing to avoid nasty surprizes */
 		newp = xstrdup(&pw->pw_passwd[1]);
 	} else if (opt & OPT_delete) {
@@ -171,9 +171,11 @@ int passwd_main(int argc, char **argv)
 
 	rlimit_fsize.rlim_cur = rlimit_fsize.rlim_max = 512L * 30000;
 	setrlimit(RLIMIT_FSIZE, &rlimit_fsize);
-	signal(SIGHUP, SIG_IGN);
-	signal(SIGINT, SIG_IGN);
-	signal(SIGQUIT, SIG_IGN);
+	bb_signals(0
+		+ (1 << SIGHUP)
+		+ (1 << SIGINT)
+		+ (1 << SIGQUIT)
+		, SIG_IGN);
 	umask(077);
 	xsetuid(0);
 

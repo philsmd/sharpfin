@@ -9,8 +9,7 @@
 
 #include "libbb.h"
 
-#if ENABLE_FEATURE_INSTALLER
-/* order matters: used as index into "install_dir[]" in busybox.c */
+/* order matters: used as index into "install_dir[]" in appletlib.c */
 typedef enum bb_install_loc_t {
 	_BB_DIR_ROOT = 0,
 	_BB_DIR_BIN,
@@ -18,38 +17,58 @@ typedef enum bb_install_loc_t {
 	_BB_DIR_USR_BIN,
 	_BB_DIR_USR_SBIN
 } bb_install_loc_t;
-#endif
 
-#if ENABLE_FEATURE_SUID
 typedef enum bb_suid_t {
 	_BB_SUID_NEVER = 0,
 	_BB_SUID_MAYBE,
 	_BB_SUID_ALWAYS
 } bb_suid_t;
+
+
+/* Defined in appletlib.c (by including generated applet_tables.h) */
+/* Keep in sync with applets/applet_tables.c! */
+extern const char applet_names[];
+extern int (*const applet_main[])(int argc, char **argv);
+extern const uint16_t applet_nameofs[];
+extern const uint8_t applet_install_loc[];
+
+#if ENABLE_FEATURE_SUID || ENABLE_FEATURE_PREFER_APPLETS
+#define APPLET_NAME(i) (applet_names + (applet_nameofs[i] & 0x0fff))
+#else
+#define APPLET_NAME(i) (applet_names + applet_nameofs[i])
 #endif
 
-struct bb_applet {
-	const char *name;
-	int (*main) (int argc, char **argv);
-#if ENABLE_FEATURE_INSTALLER
-	__extension__ enum bb_install_loc_t install_loc:8;
-#endif
-#if ENABLE_FEATURE_SUID
-	__extension__ enum bb_suid_t need_suid:8;
-#endif
 #if ENABLE_FEATURE_PREFER_APPLETS
-	/* true if instead of fork(); exec("applet"); waitpid();
-	 * one can do fork(); exit(applet_main(argc,argv)); waitpid(); */
-	unsigned char noexec;
-	/* Even nicer */
-	/* true if instead of fork(); exec("applet"); waitpid();
-	 * one can simply call applet_main(argc,argv); */
-	unsigned char nofork;
+#define APPLET_IS_NOFORK(i) (applet_nameofs[i] & (1 << 12))
+#define APPLET_IS_NOEXEC(i) (applet_nameofs[i] & (1 << 13))
 #endif
-};
 
-/* Defined in applet.c */
-extern const struct bb_applet applets[];
-extern const unsigned short NUM_APPLETS;
+#if ENABLE_FEATURE_SUID
+#define APPLET_SUID(i) ((applet_nameofs[i] >> 14) & 0x3)
+#endif
+
+#if ENABLE_FEATURE_INSTALLER
+#define APPLET_INSTALL_LOC(i) ({ \
+	unsigned v = (i); \
+	if (v & 1) v = applet_install_loc[v/2] >> 4; \
+	else v = applet_install_loc[v/2] & 0xf; \
+	v; })
+#endif
+
+
+/* Length of these names has effect on size of libbusybox
+ * and "individual" binaries. Keep them short.
+ */
+void lbb_prepare(const char *applet
+	USE_FEATURE_INDIVIDUAL(, char **argv)
+	) MAIN_EXTERNALLY_VISIBLE;
+#if ENABLE_BUILD_LIBBUSYBOX
+#if ENABLE_FEATURE_SHARED_BUSYBOX
+int lbb_main(char **argv) EXTERNALLY_VISIBLE;
+#else
+int lbb_main(char **argv);
+#endif
+#endif
+
 
 #endif	/* _BB_INTERNAL_H_ */

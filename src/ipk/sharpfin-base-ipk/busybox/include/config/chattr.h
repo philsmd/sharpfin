@@ -1,1 +1,1 @@
-#undef CONFIG_CHATTR
+#define CONFIG_CHATTR 1

@@ -16,14 +16,14 @@
 #define PRINT_OFFSET	4
 #define SIZE			8
 
-int strings_main(int argc, char **argv);
-int strings_main(int argc, char **argv)
+int strings_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int strings_main(int argc ATTRIBUTE_UNUSED, char **argv)
 {
 	int n, c, status = EXIT_SUCCESS;
 	unsigned opt;
 	unsigned count;
 	off_t offset;
-	FILE *file = stdin;
+	FILE *file;
 	char *string;
 	const char *fmt = "%s: ";
 	const char *n_arg = "4";
@@ -40,23 +40,21 @@ int strings_main(int argc, char **argv)
 	if (!*argv) {
 		fmt = "{%s}: ";
 		*--argv = (char *)bb_msg_standard_input;
-		goto PIPE;
 	}
 
 	do {
-		file = fopen_or_warn(*argv, "r");
+		file = fopen_or_warn_stdin(*argv);
 		if (!file) {
 			status = EXIT_FAILURE;
 			continue;
 		}
- PIPE:
 		offset = 0;
 		count = 0;
 		do {
 			c = fgetc(file);
 			if (isprint(c) || c == '\t') {
 				if (count > n) {
-					putchar(c);
+					bb_putchar(c);
 				} else {
 					string[count] = c;
 					if (count == n) {
@@ -72,7 +70,7 @@ int strings_main(int argc, char **argv)
 				}
 			} else {
 				if (count > n) {
-					putchar('\n');
+					bb_putchar('\n');
 				}
 				count = 0;
 			}

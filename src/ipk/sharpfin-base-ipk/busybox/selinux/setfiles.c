@@ -99,7 +99,7 @@ enum {
 #define FLAG_R               (option_mask32 & OPT_R)
 
 
-static void qprintf(const char *fmt, ...)
+static void qprintf(const char *fmt ATTRIBUTE_UNUSED, ...)
 {
 	/* quiet, do nothing */
 }
@@ -284,8 +284,8 @@ static int restore(const char *file)
 		if (count % 0x400 == 0) { /* every 1024 times */
 			count = (count % (80*0x400));
 			if (count == 0)
-				fputc('\n', stdout);
-			fputc('*', stdout);
+				bb_putchar('\n');
+			bb_putchar('*');
 			fflush(stdout);
 		}
 	}
@@ -391,8 +391,11 @@ static int restore(const char *file)
  * This function is called by recursive_action on each file during
  * the directory traversal.
  */
-static int apply_spec(const char *file,
-		      struct stat *sb, void *userData, int depth)
+static int apply_spec(
+		const char *file,
+		struct stat *sb,
+		void *userData ATTRIBUTE_UNUSED,
+		int depth ATTRIBUTE_UNUSED)
 {
 	if (!follow_mounts) {
 		/* setfiles does not process across different mount points */
@@ -486,7 +489,7 @@ static int process_one(char *name)
 	goto out;
 }
 
-int setfiles_main(int argc, char **argv);
+int setfiles_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int setfiles_main(int argc, char **argv)
 {
 	struct stat sb;
@@ -595,7 +598,7 @@ int setfiles_main(int argc, char **argv)
 		if (argc == 1)
 			bb_show_usage();
 		if (stat(argv[optind], &sb) < 0) {
-			bb_perror_msg_and_die("%s", argv[optind]);
+			bb_simple_perror_msg_and_die(argv[optind]);
 		}
 		if (!S_ISREG(sb.st_mode)) {
 			bb_error_msg_and_die("spec file %s is not a regular file", argv[optind]);
@@ -603,7 +606,7 @@ int setfiles_main(int argc, char **argv)
 		/* Load the file contexts configuration and check it. */
 		rc = matchpathcon_init(argv[optind]);
 		if (rc < 0) {
-			bb_perror_msg_and_die("%s", argv[optind]);
+			bb_simple_perror_msg_and_die(argv[optind]);
 		}
 
 		optind++;

@@ -21,13 +21,14 @@
 
 /* This is a NOFORK applet. Be very careful! */
 
-int touch_main(int argc, char **argv);
-int touch_main(int argc, char **argv)
+int touch_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int touch_main(int argc ATTRIBUTE_UNUSED, char **argv)
 {
 	int fd;
 	int status = EXIT_SUCCESS;
-	int flags = getopt32(argv, "c");
+	int flags = getopt32(argv, "cf");
 
+	flags &= 1; /* ignoring -f (BSD compat thingy) */
 	argv += optind;
 
 	if (!*argv) {
@@ -49,7 +50,7 @@ int touch_main(int argc, char **argv)
 				}
 			}
 			status = EXIT_FAILURE;
-			bb_perror_msg("%s", *argv);
+			bb_simple_perror_msg(*argv);
 		}
 	} while (*++argv);
 

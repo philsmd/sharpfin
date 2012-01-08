@@ -686,7 +686,7 @@ static void check_match(IPos start, IPos match, int length)
 	if (verbose > 1) {
 		bb_error_msg("\\[%d,%d]", start - match, length);
 		do {
-			putc(G1.window[start++], stderr);
+			fputc(G1.window[start++], stderr);
 		} while (--length != 0);
 	}
 }
@@ -2025,26 +2025,29 @@ USE_DESKTOP(long long) int pack_gzip(void)
 	return 0;
 }
 
-int gzip_main(int argc, char **argv);
+int gzip_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+#if ENABLE_GUNZIP
 int gzip_main(int argc, char **argv)
+#else
+int gzip_main(int argc ATTRIBUTE_UNUSED, char **argv)
+#endif
 {
 	unsigned opt;
 
 	/* Must match bbunzip's constants OPT_STDOUT, OPT_FORCE! */
 	opt = getopt32(argv, "cfv" USE_GUNZIP("d") "q123456789" );
-	option_mask32 &= 0x7; /* Clear -d, ignore -q, -0..9 */
+#if ENABLE_GUNZIP /* gunzip_main may not be visible... */
+	if (opt & 0x8) // -d
+		return gunzip_main(argc, argv);
+#endif
+	option_mask32 &= 0x7; /* ignore -q, -0..9 */
 	//if (opt & 0x1) // -c
 	//if (opt & 0x2) // -f
 	//if (opt & 0x4) // -v
-#if ENABLE_GUNZIP /* gunzip_main may not be visible... */
-	if (opt & 0x8) { // -d
-		return gunzip_main(argc, argv);
-	}
-#endif
 	argv += optind;
 
-	PTR_TO_GLOBALS = xzalloc(sizeof(struct globals) + sizeof(struct globals2))
-			+ sizeof(struct globals);
+	SET_PTR_TO_GLOBALS(xzalloc(sizeof(struct globals) + sizeof(struct globals2))
+			+ sizeof(struct globals));
 	G2.l_desc.dyn_tree    = G2.dyn_ltree;
 	G2.l_desc.static_tree = G2.static_ltree;
 	G2.l_desc.extra_bits  = extra_lbits;

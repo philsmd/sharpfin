@@ -1,1 +1,1 @@
-#undef CONFIG_CHGRP
+#define CONFIG_CHGRP 1

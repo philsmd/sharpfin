@@ -1,0 +1,13 @@
+#!/bin/sh
+if [ "x$1" == "xarm" ] ; then
+  make CROSS_COMPILE=arm-linux-
+  make CROSS_COMPILE=arm-linux- install
+else
+  make
+  make install
+fi
+
+rm _install/sbin/init
+rm _install/linuxrc
+rm _install/sbin/halt
+

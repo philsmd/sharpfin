@@ -1,1 +1,1 @@
-#undef CONFIG_LOSETUP
+#define CONFIG_LOSETUP 1

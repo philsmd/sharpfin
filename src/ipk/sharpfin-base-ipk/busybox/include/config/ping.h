@@ -1,1 +1,1 @@
-#undef CONFIG_PING
+#define CONFIG_PING 1

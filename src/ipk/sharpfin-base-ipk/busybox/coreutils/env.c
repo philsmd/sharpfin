@@ -30,8 +30,6 @@
  */
 
 #include <getopt.h> /* struct option */
-extern char **environ;
-
 #include "libbb.h"
 
 #if ENABLE_FEATURE_ENV_LONG_OPTIONS
@@ -41,8 +39,8 @@ static const char env_longopts[] ALIGN1 =
 	;
 #endif
 
-int env_main(int argc, char** argv);
-int env_main(int argc, char** argv)
+int env_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int env_main(int argc ATTRIBUTE_UNUSED, char **argv)
 {
 	/* cleanenv was static - why? */
 	char *cleanenv[1];
@@ -81,7 +79,7 @@ int env_main(int argc, char** argv)
 		BB_EXECVP(*argv, argv);
 		/* SUSv3-mandated exit codes. */
 		xfunc_error_retval = (errno == ENOENT) ? 127 : 126;
-		bb_perror_msg_and_die("%s", *argv);
+		bb_simple_perror_msg_and_die(*argv);
 	}
 
 	for (ep = environ; *ep; ep++) {

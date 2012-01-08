@@ -1,1 +1,1 @@
-#undef CONFIG_INSTALL
+#define CONFIG_INSTALL 1

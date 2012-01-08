@@ -1,1 +1,1 @@
-#undef CONFIG_TAIL
+#define CONFIG_TAIL 1
