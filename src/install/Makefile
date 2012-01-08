@@ -22,5 +22,7 @@
 SUBDIRS = sharpfin-base-patch \
 	  sharpfin-test-patch \
 	  sharpfin-uninstall-patch \
+	  sharpfin-lircd-install \
+	  sharpfin-nanddump-install \
 	  sharpfin-www-install
 include ../Rules.mak
