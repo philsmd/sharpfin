@@ -31,6 +31,7 @@
 #include <fcntl.h>
 #include <ctype.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <stdarg.h>
 #include <errno.h>
 #include "launcher.h"
@@ -114,8 +115,7 @@ int readln(int handle, int isnet, char *buf, int max)
 // patches[2]="URL2"
 // patches[3]="Description of URL2"
 //
-char **geturls(int *numpatches)
-{
+char **geturls(int *numpatches) {
 	int h ;
 	char url[MAX] ;
 	char desc[MAX] ;
@@ -123,7 +123,9 @@ char **geturls(int *numpatches)
 	int errcode ;
 	
 	// Open local urls file
-	h=open("patchfiles.lst", O_RDONLY) ;
+	FILE *f=fopen("patchfiles.lst","r"); // needed? 
+	h=open("patchfiles.lst",O_RDONLY); // re-uses file handle
+	// TODO use fopen ONLY
 	if (h<=0) {
 		MessageBox(0, "Unable to find patchfiles.lst.\nThis file tells the patchserver where to get the list of patchfiles from.\n", "Error...", MB_OK) ;
 		return NULL ;
@@ -135,7 +137,6 @@ char **geturls(int *numpatches)
 	}
 
 	if (url[0]=='-') {
-
 		// If the file starts with a '-', this means that the file contains the urls so leave it open
 		isnet=(1==0) ;
 	} else {
@@ -163,10 +164,8 @@ char **geturls(int *numpatches)
 		}
 		
 	}
-	
 	patches=(char **)allocatememory(MAX * sizeof(char *)) ;
 	while (getwebpage(h, isnet, url, desc) && (*numpatches)<=MAX-2) {
-
 		if (url[0]!='\0' && desc[0]!='\0') {
 			patches[(*numpatches)]=(char *)allocatememory(strlen(url)+1) ;
 			strcpy(patches[(*numpatches)++], url) ;
@@ -175,9 +174,12 @@ char **geturls(int *numpatches)
 		}
 	}
 
-	if (isnet) closesocket(h) ;
-	else close(h) ;
-	
+	if (isnet) {
+		closesocket(h) ;
+	} else {
+		close(h);
+		fclose(f);
+	}
 	return patches ;
 }
 
