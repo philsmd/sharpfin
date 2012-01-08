@@ -1,2 +1,6 @@
-$Id: patchfiles.lst 282 2011-11-30 15:20:46Z phil $
-PATCHFILE - -
+$Id: patchfiles.lst 289 2012-01-06 15:45:46Z phil $
+PATCHFILE http://www.pschmidt.it/sharpfin/images/9/9a/Sharpfin-test.patch Sharpfin Test Patch
+PATCHFILE http://www.pschmidt.it/sharpfin/images/c/c2/Sharpfin-base_0.3.patch Sharpfin Install Patch Version 0.3 (includes Sharpfin Webserver 0.6)
+PATCHFILE http://www.pschmidt.it/sharpfin/images/7/71/Sharpfin-uninstall_0.1.patch Sharpfin Uninstall Version 0.1
+PATCHFILE http://www.pschmidt.it/sharpfin/images/2/24/Sharpfin-www_0.6.install Sharpfin Webserver Version 0.6
+PATCHFILE http://www.pschmidt.it/sharpfin/images/2/26/Sharpfin-base_0.4-alpha20080510.patch Alpha 10/05/08 Sharpfin Base, including FTP Server
