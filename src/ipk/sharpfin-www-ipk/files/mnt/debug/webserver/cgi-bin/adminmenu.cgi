@@ -18,7 +18,7 @@ echo "body { font-size: 14px; color: #FFFFFF; font-family: Arial, Helvetica, san
 echo "--></style></head>"
 
 echo "<body background=\"/bgtile.jpg\"><center>"
-echo "<img border=1 src="/sharpfin.jpg" width=145/><br/><br/>"
+echo "<a title=\"Sharpfin homepage\" target=\"_blank\" href=\"http://www.pschmidt.it/sharpfin/\"><img alt=\"Sharpfin logo\" border=0 src=\"/sharpfin_small.png\" width=145/></a><br/><br/>"
 echo "<a href=\"/index.html\" target=\"_top\">Radio Home</a><br/>"
 echo "<a href=\"/admin.html\" target=\"_top\">Admin Home</a><br/>"
 

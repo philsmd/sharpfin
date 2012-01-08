@@ -1,5 +1,6 @@
 #!/bin/ash
-
+CONFVAL=`readconfig`
+RECIVA_HW_CONFIG=$((0x$CONFVAL & 0x3FF))
 . readconfig.sh
 RECIVA_APPV="`ipkg list_installed | grep reciva-app | cut -d' ' -f3`"
 SERVPACK="`/usr/bin/get-current-service-pack-version`"
