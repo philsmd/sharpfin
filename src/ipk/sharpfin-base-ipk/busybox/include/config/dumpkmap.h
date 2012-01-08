@@ -1,1 +1,1 @@
-#define CONFIG_DUMPKMAP 1
+#undef CONFIG_DUMPKMAP

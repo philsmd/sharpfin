@@ -1,1 +1,1 @@
-#undef CONFIG_CHAT
+#define CONFIG_CHAT 1

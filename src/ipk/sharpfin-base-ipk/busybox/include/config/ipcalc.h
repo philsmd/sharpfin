@@ -1,1 +1,1 @@
-#define CONFIG_IPCALC 1
+#undef CONFIG_IPCALC

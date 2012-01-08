@@ -1,1 +1,1 @@
-#define CONFIG_TTYSIZE 1
+#undef CONFIG_TTYSIZE

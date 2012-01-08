@@ -1,1 +1,1 @@
-#define CONFIG_LOGIN 1
+#undef CONFIG_LOGIN

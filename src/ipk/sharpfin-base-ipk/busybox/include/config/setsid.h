@@ -1,1 +1,1 @@
-#define CONFIG_SETSID 1
+#undef CONFIG_SETSID

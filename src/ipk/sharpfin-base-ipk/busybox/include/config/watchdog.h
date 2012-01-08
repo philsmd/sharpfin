@@ -1,1 +1,1 @@
-#define CONFIG_WATCHDOG 1
+#undef CONFIG_WATCHDOG

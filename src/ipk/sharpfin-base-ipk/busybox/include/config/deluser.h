@@ -1,1 +1,1 @@
-#define CONFIG_DELUSER 1
+#undef CONFIG_DELUSER

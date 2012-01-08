@@ -1,1 +1,1 @@
-#define CONFIG_SLATTACH 1
+#undef CONFIG_SLATTACH

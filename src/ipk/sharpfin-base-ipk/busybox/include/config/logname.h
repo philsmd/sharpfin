@@ -1,1 +1,1 @@
-#define CONFIG_LOGNAME 1
+#undef CONFIG_LOGNAME
