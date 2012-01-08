@@ -21,8 +21,8 @@
 
 BIN   	  := lcdtest
 SRC 	  := lcdtest.c
-CFLAGS    += -I../../libreciva/include
-LDFLAGS   += -L../../libreciva -lreciva
+CFLAGS    += -I$(PWD)/../../libreciva/include
+LDFLAGS   += -L$(PWD)/../../libreciva -lreciva
 VER	:=	"`cat debug/revision.txt | cut -d' ' -f2`"
 
 include ../../Rules.mak
