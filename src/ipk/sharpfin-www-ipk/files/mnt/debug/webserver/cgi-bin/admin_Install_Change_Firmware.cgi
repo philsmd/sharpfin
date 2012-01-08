@@ -31,7 +31,7 @@ if [ ! "$ACTION" = "" ]; then
     echo "<ul><li><a href=\"/tmp/$DATA.patch\">$DATA.patch</a></li>"
     echo "<li><a href=\"/tmp/$DATA.patch.txt\">$DATA.patch.txt</a></li></ul>"
     echo "<p>The patchserver (and instructions) can be found on the"
-    echo "<a href=\"http://www.sharpfin.zevv.nl/\" target=\"sharpfin\">Sharpfin Website</a></p>"
+    echo "<a href=\"http://www.pschmidt.it/sharpfin/\" target=\"sharpfin\">Sharpfin Website</a></p>"
     echo "<p><i>be aware that this patchfile contains the instructions to download the actual"
     echo "firmware.  Please don't keep a backup of this patchfile, thinking you have the whole"
     echo "firmware.  The firmware is downloaded from the Reciva servers as part of the upgrade"
