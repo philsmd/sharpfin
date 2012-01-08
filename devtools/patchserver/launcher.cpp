@@ -27,11 +27,12 @@
 #include "alloc.h"
 #include <stdio.h>
 #include <process.h>
+#include <unistd.h>
 #include "launcher.h"
 #include "terms.h"
 
-int getregistry(HKEY section, char *subkey, char *value, char *response, int maxlen)
-{
+
+int getregistry(HKEY section, char *subkey, char *value, char *response, int maxlen) {
 	HKEY s ;
 	DWORD len ;
 	len=maxlen-1 ;
@@ -61,8 +62,7 @@ int getregistry(HKEY section, char *subkey, char *value, char *response, int max
 	}
 }
 
-int cygwincheck()
-{
+int cygwincheck() {
 	char *pathname=NULL ;
 	char *path ;
 	
@@ -102,20 +102,51 @@ int cygwincheck()
 	return (1==1) ;
 }
 
+bool createCommandLineProcess(char**args,int argsize) {
+	if (args==NULL||*args==NULL||(sizeof(args)/sizeof(char))<=1||argsize<1) {
+		return FALSE;
+	}
+	PROCESS_INFORMATION pi;
+	STARTUPINFO si;
+	ZeroMemory(&si,sizeof(si));
 
-int WinMain(HINSTANCE hwnd,HINSTANCE,LPSTR orgargv,int) 
-{ 
-	char *args[5] ;
+	const unsigned int maxParamLength=1024;
+	int currParamLength=0;
+	char paramString[maxParamLength];
+	strcpy(paramString,"");
+	for (int i=0;i<argsize-1;i++) {
+		if ((currParamLength+strlen(args[i])+2)>maxParamLength||args[i]==NULL) {
+			break;
+		}
+		strcat(paramString,args[i]);
+		strcat(paramString," ");
+		currParamLength+=strlen(args[i]);
+	}
+	paramString[maxParamLength-1]='\n';
+	char cygwinStart[512];
+	strcpy(cygwinStart,"c:\\cygwin\\bin\\");
+	strcat(cygwinStart,args[0]);
+	cygwinStart[511]='\0';
+	if (!CreateProcess(cygwinStart,paramString,0,0,0,0,0,0,&si,&pi)) {
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+int WinMain(HINSTANCE hwnd,HINSTANCE,LPSTR orgargv,int) { 
+	unsigned const int argsize=7;
+	char *args[argsize] ;
 	char **patches ;
 	char **patchurl ;
 	char dnsserver[MAX], *tarfile ;
-	int numpatches, selectedpatch ;
-	
+	int numpatches=0, selectedpatch ;
 	/* Check cygwin is installed */
 	if (!cygwincheck()) return 1 ;
-	
 	/* Get the Ts&Cs Agreement */
-	if (MessageBox(0, TERMS, "Terms and Conditions", MB_YESNO)!=IDYES) return 0 ;
+	if (MessageBox(0,TERMS,"Sharpfin Patch-Server - Terms and Conditions",MB_YESNO)!=IDYES) {
+		return 0 ;
+	}
 
 	/* Get the list of patchfiles */
 	patches=geturls(&numpatches) ;
@@ -151,16 +182,45 @@ int WinMain(HINSTANCE hwnd,HINSTANCE,LPSTR orgargv,int)
 
 	} while (selectedpatch==(-1) || !( (dnsserver[0]>='0') && (dnsserver[0]<='9') )) ;
 	
-	
 	/* All OK, run the real program */
-	args[0]="patchserver-commandline.exe" ;
-	args[1]="-accept" ;
-	args[2]=dnsserver;
-	args[3]=tarfile ;
-	args[4]=NULL ;
-	execvp(args[0], args) ;
-	
+	args[0]="cygstart.exe";
+ 	args[1]="--action=runas";
+	args[2]="patchserver-commandline.exe";
+	args[3]="-accept";
+	args[4]=dnsserver;
+	args[5]=tarfile ;
+	args[6]=NULL ;
+
+	FILE * f=fopen(args[2],"r");
+	if (f!=0) {
+		execvp(args[0],args);
+		fclose(f);
+	} else {
+		MessageBox(0,"Unable to locate patchserver-commandline.exe", "Problem ...",MB_OK); 
+		return 1;
+	}
 	/* Error! */
-	MessageBox(0,"Unable to locate patchserver-commandline.exe", "Problem ...",MB_OK); 
-	return 1; 	
+	if (!createCommandLineProcess(args,argsize)) {
+	/* Error Again, report it */
+		const unsigned int maxErrorLength=1024;
+		int currErrorLength=0;
+		char errorMsg[maxErrorLength];
+		char * fixedErrorString="Unable to run patchserver-commandline.exe.\n" \
+			"Maybe you do NOT have the required permissions to execute this file. " \
+			"Try to run the following command from your (cygwin) terminal:\n";
+		strcpy(errorMsg,fixedErrorString);
+		currErrorLength+=sizeof(fixedErrorString)/sizeof(char);
+		for (int i=0;i<argsize-1;i++) {
+			if ((currErrorLength+strlen(args[i])+2)>maxErrorLength||args[i]==NULL) {
+				break;
+			}
+			strcat(errorMsg,args[i]);
+			strcat(errorMsg," ");
+			currErrorLength+=strlen(args[i]);
+		}
+		errorMsg[maxErrorLength-1]='\n';
+		MessageBox(0,errorMsg,"ERROR running patchserver-commandline",MB_OK);
+		return 1;
+	}
+	return 0;
 } 
