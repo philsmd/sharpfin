@@ -1,1 +1,1 @@
-#undef CONFIG_KLOGD
+#define CONFIG_KLOGD 1

@@ -1,6 +1,9 @@
 #!/bin/sh
 
-test -x hush || { echo "No ./hush?!"; exit; }
+test -x hush || {
+    echo "No ./hush?! Perhaps you want to run 'ln -s ../../busybox hush'"
+    exit
+}
 
 PATH="$PWD:$PATH" # for hush and recho/zecho/printenv
 export PATH
@@ -11,6 +14,7 @@ export THIS_SH
 do_test()
 {
     test -d "$1" || return 0
+#   echo Running tests in directory "$1"
     (
     cd "$1" || { echo "cannot cd $1!"; exit 1; }
     for x in run-*; do
@@ -31,6 +35,7 @@ do_test()
 	test -x "$x" || continue
 	name="${x%%.tests}"
 	test -f "$name.right" || continue
+#	echo Running test: "$name.right"
 	{
 	    "$THIS_SH" "./$x" >"$name.xx" 2>&1
 	    diff -u "$name.xx" "$name.right" >"../$1-$x.fail" && rm -f "$name.xx" "../$1-$x.fail"

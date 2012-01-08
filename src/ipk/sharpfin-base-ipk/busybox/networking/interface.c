@@ -223,7 +223,7 @@ static char *UNSPEC_print(unsigned char *ptr)
 	char *pos;
 	unsigned int i;
 
-	if (!buff);
+	if (!buff)
 		buff = xmalloc(sizeof(struct sockaddr) * 3 + 1);
 	pos = buff;
 	for (i = 0; i < sizeof(struct sockaddr); i++) {
@@ -237,7 +237,7 @@ static char *UNSPEC_print(unsigned char *ptr)
 }
 
 /* Display an UNSPEC socket address. */
-static const char *UNSPEC_sprint(struct sockaddr *sap, int numeric)
+static const char *UNSPEC_sprint(struct sockaddr *sap, int numeric ATTRIBUTE_UNUSED)
 {
 	if (sap->sa_family == 0xFFFF || sap->sa_family == 0)
 		return "[NONE SET]";
@@ -248,7 +248,7 @@ static const struct aftype unspec_aftype = {
 	.name   = "unspec",
 	.title  = "UNSPEC",
 	.af     = AF_UNSPEC,
-	.alen    = 0,
+	.alen   = 0,
 	.print  = UNSPEC_print,
 	.sprint = UNSPEC_sprint,
 };
@@ -405,24 +405,25 @@ static char *get_name(char *name, char *p)
 	/* Extract <name> from nul-terminated p where p matches
 	   <name>: after leading whitespace.
 	   If match is not made, set name empty and return unchanged p */
-	int namestart=0, nameend=0;
+	int namestart = 0, nameend = 0;
+
 	while (isspace(p[namestart]))
 		namestart++;
-	nameend=namestart;
-	while (p[nameend] && p[nameend]!=':' && !isspace(p[nameend]))
+	nameend = namestart;
+	while (p[nameend] && p[nameend] != ':' && !isspace(p[nameend]))
 		nameend++;
-	if (p[nameend]==':') {
-		if ((nameend-namestart)<IFNAMSIZ) {
-			memcpy(name,&p[namestart],nameend-namestart);
-			name[nameend-namestart]='\0';
-			p=&p[nameend];
+	if (p[nameend] == ':') {
+		if ((nameend - namestart) < IFNAMSIZ) {
+			memcpy(name, &p[namestart], nameend - namestart);
+			name[nameend - namestart] = '\0';
+			p = &p[nameend];
 		} else {
 			/* Interface name too large */
-			name[0]='\0';
+			name[0] = '\0';
 		}
 	} else {
 		/* trailing ':' not found - return empty */
-		name[0]='\0';
+		name[0] = '\0';
 	}
 	return p + 1;
 }
@@ -559,9 +560,8 @@ static int if_readlist_proc(char *target)
 	if (!target)
 		proc_read = 1;
 
-	fh = fopen(_PATH_PROCNET_DEV, "r");
+	fh = fopen_or_warn(_PATH_PROCNET_DEV, "r");
 	if (!fh) {
-		bb_perror_msg("warning: cannot open %s, limiting output", _PATH_PROCNET_DEV);
 		return if_readconf();
 	}
 	fgets(buf, sizeof buf, fh);	/* eat line */
@@ -937,7 +937,7 @@ static void ife_print(struct interface *ptr)
 			printf("(auto)");
 	}
 #endif
-	puts("");
+	bb_putchar('\n');
 
 	if (ptr->has_ip) {
 		printf("          %s addr:%s ", ap->name,
@@ -1073,7 +1073,7 @@ static void ife_print(struct interface *ptr)
 	if (ptr->outfill || ptr->keepalive)
 		printf("  Outfill:%d  Keepalive:%d", ptr->outfill, ptr->keepalive);
 #endif
-	puts("");
+	bb_putchar('\n');
 
 	/* If needed, display the interface statistics. */
 
@@ -1122,9 +1122,9 @@ static void ife_print(struct interface *ptr)
 		}
 		if (ptr->map.dma)
 			printf("DMA chan:%x ", ptr->map.dma);
-		puts("");
+		bb_putchar('\n');
 	}
-	puts("");
+	bb_putchar('\n');
 }
 
 

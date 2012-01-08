@@ -46,7 +46,7 @@ static void list_attributes(const char *name)
 	if (option_mask32 & OPT_PF_LONG) {
 		printf("%-28s ", name);
 		print_flags(stdout, fsflags, PFOPT_LONG);
-		puts("");
+		bb_putchar('\n');
 	} else {
 		print_flags(stdout, fsflags, 0);
 		printf(" %s\n", name);
@@ -58,7 +58,7 @@ static void list_attributes(const char *name)
 }
 
 static int lsattr_dir_proc(const char *dir_name, struct dirent *de,
-			   void *private)
+			   void *private ATTRIBUTE_UNUSED)
 {
 	struct stat st;
 	char *path;
@@ -74,7 +74,7 @@ static int lsattr_dir_proc(const char *dir_name, struct dirent *de,
 		) {
 			printf("\n%s:\n", path);
 			iterate_on_dir(path, lsattr_dir_proc, NULL);
-			puts("");
+			bb_putchar('\n');
 		}
 	}
 
@@ -95,18 +95,15 @@ static void lsattr_args(const char *name)
 	}
 }
 
-int lsattr_main(int argc, char **argv);
-int lsattr_main(int argc, char **argv)
+int lsattr_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int lsattr_main(int argc ATTRIBUTE_UNUSED, char **argv)
 {
 	getopt32(argv, "Radlv");
 	argv += optind;
 
 	if (!*argv)
-		lsattr_args(".");
-	else {
-		while (*argv)
-			lsattr_args(*argv++);
-	}
+		*--argv = (char*)".";
+	do lsattr_args(*argv++); while (*argv);
 
 	return EXIT_SUCCESS;
 }

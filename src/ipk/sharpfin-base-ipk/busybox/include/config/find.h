@@ -1,1 +1,1 @@
-#undef CONFIG_FIND
+#define CONFIG_FIND 1

@@ -1,1 +1,1 @@
-#undef CONFIG_SU
+#define CONFIG_SU 1

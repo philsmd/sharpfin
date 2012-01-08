@@ -1,1 +1,1 @@
-#undef CONFIG_RUN_PARTS
+#define CONFIG_RUN_PARTS 1

@@ -1,1 +1,1 @@
-#undef CONFIG_UUENCODE
+#define CONFIG_UUENCODE 1

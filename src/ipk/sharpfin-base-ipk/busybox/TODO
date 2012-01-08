@@ -7,27 +7,21 @@ have any suggestions how they plan to go about it, and to minimize conflicts
 between your work and theirs.  But otherwise, all of these are fair game.
 
 Rob Landley <rob@landley.net>:
-  Add BB_NOMMU to platform.h and migrate __uClinux__ tests to that.
-    #if defined __UCLIBC__ && !defined __ARCH_USE_MMU__
   Add a libbb/platform.c
     Implement fdprintf() for platforms that haven't got one.
     Implement bb_realpath() that can handle NULL on non-glibc.
     Cleanup bb_asprintf()
 
-  Migrate calloc() and bb_calloc() occurrences to bb_xzalloc().
   Remove obsolete _() wrapper crud for internationalization we don't do.
   Figure out where we need utf8 support, and add it.
 
   sh
-    The command shell situation is a big mess.  We have three or four different
+    The command shell situation is a big mess.  We have three different
     shells that don't really share any code, and the "standalone shell" doesn't
     work all that well (especially not in a chroot environment), due to apps not
-    being reentrant.  I'm writing a new shell (bbsh) to unify the various
-    shells and configurably add the minimal set of bash features people
-    actually use.  The hardest part is it has to configure down as small as
-    lash while providing lash's features.  The rest is easy in comparison.
-  bzip2
-    Compression-side support.
+    being reentrant.
+    lash is phased out. hush can be configured down to be nearly as small,
+    but less buggy :)
   init
     General cleanup (should use ENABLE_FEATURE_INIT_SYSLOG and ENABLE_FEATURE_INIT_DEBUG).
   depmod
@@ -35,8 +29,6 @@ Rob Landley <rob@landley.net>:
     use of the depmod.pl (perl is to bloated for most embedded setups) and or orig
     modutils. The orig depmod is rather pointless to have to add to a firmware image
     in when we already have a insmod/rmmod and friends.
-  Unify base64 handling.
-    [done]
   Do a SUSv3 audit
     Look at the full Single Unix Specification version 3 (available online at
     "http://www.opengroup.org/onlinepubs/009695399/nfindex.html") and
@@ -129,9 +121,6 @@ Bernhard Fischer <busybox@busybox.net> suggests to look at these:
 As yet unclaimed:
 
 ----
-find
-  doesn't understand (), lots of susv3 stuff.
-----
 diff
   Make sure we handle empty files properly:
     From the patch man page:
@@ -147,10 +136,6 @@ patch
 
   And while we're at it, a new patch filename quoting format is apparently
   coming soon:  http://marc.theaimsgroup.com/?l=git&m=112927316408690&w=2
----
-ps / top
-  Add support for both RSS and VSIZE rather than just one or the other.
-  Or make it a build option.
 ---
 man
   It would be nice to have a man command.  Not one that handles troff or
@@ -306,15 +291,15 @@ Minor stuff:
 ---
   Move __get_hz() to a better place and (re)use it in route.c, ash.c, msh.c
 ---
+  See grep -r strtod
+  Alot of duplication that wants cleanup.
+---
 
 
 Code cleanup:
 
 Replace deprecated functions.
 
-bzero() -> memset()
----
-sigblock(), siggetmask(), sigsetmask(), sigmask() -> sigprocmask et al
 ---
 vdprintf() -> similar sized functionality
 ---

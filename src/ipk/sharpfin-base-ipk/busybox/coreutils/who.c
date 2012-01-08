@@ -16,6 +16,7 @@
  *
  *----------------------------------------------------------------------
  */
+/* BB_AUDIT SUSv3 _NOT_ compliant -- missing options -b, -d, -H, -l, -m, -p, -q, -r, -s, -t, -T, -u; Missing argument 'file'.  */
 
 #include "libbb.h"
 #include <utmp.h>
@@ -39,38 +40,37 @@ static void idle_string(char *str6, time_t t)
 	strcpy(str6, "old");
 }
 
-int who_main(int argc, char **argv);
-int who_main(int argc, char **argv)
+int who_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int who_main(int argc ATTRIBUTE_UNUSED, char **argv)
 {
 	char str6[6];
 	struct utmp *ut;
 	struct stat st;
 	char *name;
+	unsigned opt;
 
-	if (argc > 1) {
-		bb_show_usage();
-	}
+	opt_complementary = "=0";
+	opt = getopt32(argv, "a");
 
 	setutent();
-	printf("USER       TTY      IDLE      TIME           HOST\n");
+	printf("USER       TTY      IDLE      TIME            HOST\n");
 	while ((ut = getutent()) != NULL) {
-		if (ut->ut_user[0] && ut->ut_type == USER_PROCESS) {
-			time_t thyme = ut->ut_tv.tv_sec;
-
+		if (ut->ut_user[0] && (opt || ut->ut_type == USER_PROCESS)) {
 			/* ut->ut_line is device name of tty - "/dev/" */
 			name = concat_path_file("/dev", ut->ut_line);
 			str6[0] = '?';
 			str6[1] = '\0';
 			if (stat(name, &st) == 0)
 				idle_string(str6, st.st_atime);
-			printf("%-10s %-8s %-9s %-14.14s %s\n",
+			/* 15 chars for time:   Nov 10 19:33:20 */
+			printf("%-10s %-8s %-9s %-15.15s %s\n",
 					ut->ut_user, ut->ut_line, str6,
-					ctime(&thyme) + 4, ut->ut_host);
+					ctime(&(ut->ut_tv.tv_sec)) + 4, ut->ut_host);
 			if (ENABLE_FEATURE_CLEAN_UP)
 				free(name);
 		}
 	}
 	if (ENABLE_FEATURE_CLEAN_UP)
 		endutent();
-	return 0;
+	return EXIT_SUCCESS;
 }

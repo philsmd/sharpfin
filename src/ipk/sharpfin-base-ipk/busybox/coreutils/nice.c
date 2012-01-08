@@ -10,7 +10,7 @@
 #include <sys/resource.h>
 #include "libbb.h"
 
-int nice_main(int argc, char **argv);
+int nice_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int nice_main(int argc, char **argv)
 {
 	int old_priority, adjustment;
@@ -51,5 +51,5 @@ int nice_main(int argc, char **argv)
 
 	/* The exec failed... */
 	xfunc_error_retval = (errno == ENOENT) ? 127 : 126; /* SUSv3 */
-	bb_perror_msg_and_die("%s", *argv);
+	bb_simple_perror_msg_and_die(*argv);
 }

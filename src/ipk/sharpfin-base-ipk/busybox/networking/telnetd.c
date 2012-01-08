@@ -24,97 +24,83 @@
 #define DEBUG 0
 
 #include "libbb.h"
+#include <syslog.h>
 
 #if DEBUG
 #define TELCMDS
 #define TELOPTS
 #endif
 #include <arpa/telnet.h>
-#include <sys/syslog.h>
 
-
-#if ENABLE_LOGIN
-static const char *loginpath = "/bin/login";
-#else
-static const char *loginpath = DEFAULT_SHELL;
-#endif
-
-static const char *issuefile = "/etc/issue.net";
-
-/* structure that describes a session */
-
+/* Structure that describes a session */
 struct tsession {
 	struct tsession *next;
 	int sockfd_read, sockfd_write, ptyfd;
 	int shell_pid;
+
 	/* two circular buffers */
-	char *buf1, *buf2;
+	/*char *buf1, *buf2;*/
+/*#define TS_BUF1 ts->buf1*/
+/*#define TS_BUF2 TS_BUF2*/
+#define TS_BUF1 ((unsigned char*)(ts + 1))
+#define TS_BUF2 (((unsigned char*)(ts + 1)) + BUFSIZE)
 	int rdidx1, wridx1, size1;
 	int rdidx2, wridx2, size2;
 };
 
 /* Two buffers are directly after tsession in malloced memory.
  * Make whole thing fit in 4k */
-enum { BUFSIZE = (4*1024 - sizeof(struct tsession)) / 2 };
+enum { BUFSIZE = (4 * 1024 - sizeof(struct tsession)) / 2 };
 
-/*
-   This is how the buffers are used. The arrows indicate the movement
-   of data.
 
-   +-------+     wridx1++     +------+     rdidx1++     +----------+
-   |       | <--------------  | buf1 | <--------------  |          |
-   |       |     size1--      +------+     size1++      |          |
-   |  pty  |                                            |  socket  |
-   |       |     rdidx2++     +------+     wridx2++     |          |
-   |       |  --------------> | buf2 |  --------------> |          |
-   +-------+     size2++      +------+     size2--      +----------+
-
-   Each session has got two buffers.
-*/
-
+/* Globals */
 static int maxfd;
-
 static struct tsession *sessions;
+static const char *loginpath = "/bin/login";
+static const char *issuefile = "/etc/issue.net";
 
 
 /*
-   Remove all IAC's from the buffer pointed to by bf (received IACs are ignored
-   and must be removed so as to not be interpreted by the terminal).  Make an
-   uninterrupted string of characters fit for the terminal.  Do this by packing
-   all characters meant for the terminal sequentially towards the end of bf.
+   Remove all IAC's from buf1 (received IACs are ignored and must be removed
+   so as to not be interpreted by the terminal).  Make an uninterrupted
+   string of characters fit for the terminal.  Do this by packing
+   all characters meant for the terminal sequentially towards the end of buf.
 
    Return a pointer to the beginning of the characters meant for the terminal.
    and make *num_totty the number of characters that should be sent to
    the terminal.
 
    Note - If an IAC (3 byte quantity) starts before (bf + len) but extends
-   past (bf + len) then that IAC will be left unprocessed and *processed will be
-   less than len.
+   past (bf + len) then that IAC will be left unprocessed and *processed
+   will be less than len.
 
    FIXME - if we mean to send 0xFF to the terminal then it will be escaped,
    what is the escape character?  We aren't handling that situation here.
 
-   CR-LF ->'s CR mapping is also done here, for convenience
+   CR-LF ->'s CR mapping is also done here, for convenience.
+
+   NB: may fail to remove iacs which wrap around buffer!
  */
-static char *
+static unsigned char *
 remove_iacs(struct tsession *ts, int *pnum_totty)
 {
-	unsigned char *ptr0 = (unsigned char *)ts->buf1 + ts->wridx1;
+	unsigned char *ptr0 = TS_BUF1 + ts->wridx1;
 	unsigned char *ptr = ptr0;
 	unsigned char *totty = ptr;
 	unsigned char *end = ptr + MIN(BUFSIZE - ts->wridx1, ts->size1);
-	int processed;
 	int num_totty;
 
 	while (ptr < end) {
 		if (*ptr != IAC) {
-			int c = *ptr;
-			*totty++ = *ptr++;
+			char c = *ptr;
+
+			*totty++ = c;
+			ptr++;
 			/* We now map \r\n ==> \r for pragmatic reasons.
 			 * Many client implementations send \r\n when
 			 * the user hits the CarriageReturn key.
 			 */
-			if (c == '\r' && (*ptr == '\n' || *ptr == 0) && ptr < end)
+			if (c == '\r' && ptr < end && (*ptr == '\n' || *ptr == '\0'))
 				ptr++;
 		} else {
 			/*
@@ -132,6 +118,7 @@ remove_iacs(struct tsession *ts, int *pnum_totty)
 			 */
 			else if (ptr[1] == SB && ptr[2] == TELOPT_NAWS) {
 				struct winsize ws;
+
 				if ((ptr+8) >= end)
 					break;	/* incomplete, can't process */
 				ws.ws_col = (ptr[3] << 8) | ptr[4];
@@ -149,110 +136,56 @@ remove_iacs(struct tsession *ts, int *pnum_totty)
 		}
 	}
 
-	processed = ptr - ptr0;
 	num_totty = totty - ptr0;
-	/* the difference between processed and num_to tty
-	   is all the iacs we removed from the stream.
-	   Adjust buf1 accordingly. */
-	ts->wridx1 += processed - num_totty;
-	ts->size1 -= processed - num_totty;
 	*pnum_totty = num_totty;
-	/* move the chars meant for the terminal towards the end of the
-	buffer. */
+	/* the difference between ptr and totty is number of iacs
+	   we removed from the stream. Adjust buf1 accordingly. */
+	if ((ptr - totty) == 0) /* 99.999% of cases */
+		return ptr0;
+	ts->wridx1 += ptr - totty;
+	ts->size1 -= ptr - totty;
+	/* move chars meant for the terminal towards the end of the buffer */
 	return memmove(ptr - num_totty, ptr0, num_totty);
-}
-
-
-static int
-getpty(char *line, int size)
-{
-	int p;
-#if ENABLE_FEATURE_DEVPTS
-	p = open("/dev/ptmx", O_RDWR);
-	if (p > 0) {
-		const char *name;
-		grantpt(p);
-		unlockpt(p);
-		name = ptsname(p);
-		if (!name) {
-			bb_perror_msg("ptsname error (is /dev/pts mounted?)");
-			return -1;
-		}
-		safe_strncpy(line, name, size);
-		return p;
-	}
-#else
-	struct stat stb;
-	int i;
-	int j;
-
-	strcpy(line, "/dev/ptyXX");
-
-	for (i = 0; i < 16; i++) {
-		line[8] = "pqrstuvwxyzabcde"[i];
-		line[9] = '0';
-		if (stat(line, &stb) < 0) {
-			continue;
-		}
-		for (j = 0; j < 16; j++) {
-			line[9] = j < 10 ? j + '0' : j - 10 + 'a';
-			if (DEBUG)
-				fprintf(stderr, "Trying to open device: %s\n", line);
-			p = open(line, O_RDWR | O_NOCTTY);
-			if (p >= 0) {
-				line[5] = 't';
-				return p;
-			}
-		}
-	}
-#endif /* FEATURE_DEVPTS */
-	return -1;
-}
-
-
-static void
-send_iac(struct tsession *ts, unsigned char command, int option)
-{
-	/* We rely on that there is space in the buffer for now. */
-	char *b = ts->buf2 + ts->rdidx2;
-	*b++ = IAC;
-	*b++ = command;
-	*b++ = option;
-	ts->rdidx2 += 3;
-	ts->size2 += 3;
 }
 
 
 static struct tsession *
 make_new_session(
-		USE_FEATURE_TELNETD_STANDALONE(int sock_r, int sock_w)
+		USE_FEATURE_TELNETD_STANDALONE(int sock)
 		SKIP_FEATURE_TELNETD_STANDALONE(void)
 ) {
 	const char *login_argv[2];
 	struct termios termbuf;
 	int fd, pid;
-	char tty_name[32];
+	char tty_name[GETPTY_BUFSIZE];
 	struct tsession *ts = xzalloc(sizeof(struct tsession) + BUFSIZE * 2);
 
-	ts->buf1 = (char *)(&ts[1]);
-	ts->buf2 = ts->buf1 + BUFSIZE;
+	/*ts->buf1 = (char *)(ts + 1);*/
+	/*ts->buf2 = ts->buf1 + BUFSIZE;*/
 
 	/* Got a new connection, set up a tty. */
-	fd = getpty(tty_name, 32);
+	fd = getpty(tty_name);
 	if (fd < 0) {
-		bb_error_msg("all terminals in use");
+		bb_error_msg("can't create pty");
 		return NULL;
 	}
-	if (fd > maxfd) maxfd = fd;
-	ndelay_on(ts->ptyfd = fd);
+	if (fd > maxfd)
+		maxfd = fd;
+	ts->ptyfd = fd;
+	ndelay_on(fd);
 #if ENABLE_FEATURE_TELNETD_STANDALONE
-	if (sock_w > maxfd) maxfd = sock_w;
-	if (sock_r > maxfd) maxfd = sock_r;
-	ndelay_on(ts->sockfd_write = sock_w);
-	ndelay_on(ts->sockfd_read = sock_r);
+	ts->sockfd_read = sock;
+	ndelay_on(sock);
+	if (!sock) { /* We are called with fd 0 - we are in inetd mode */
+		sock++; /* so use fd 1 for output */
+		ndelay_on(sock);
+	}
+	ts->sockfd_write = sock;
+	if (sock > maxfd)
+		maxfd = sock;
 #else
+	/* ts->sockfd_read = 0; - done by xzalloc */
 	ts->sockfd_write = 1;
-	/* xzalloc: ts->sockfd_read = 0; */
 	ndelay_on(0);
 	ndelay_on(1);
 #endif
@@ -260,29 +193,42 @@ make_new_session(
 	 * should not do it locally. We don't tell the client to run linemode,
 	 * because we want to handle line editing and tab completion and other
 	 * stuff that requires char-by-char support. */
-	send_iac(ts, DO, TELOPT_ECHO);
-	send_iac(ts, DO, TELOPT_NAWS);
-	send_iac(ts, DO, TELOPT_LFLOW);
-	send_iac(ts, WILL, TELOPT_ECHO);
-	send_iac(ts, WILL, TELOPT_SGA);
+	{
+		static const char iacs_to_send[] ALIGN1 = {
+			IAC, DO, TELOPT_ECHO,
+			IAC, DO, TELOPT_NAWS,
+			IAC, DO, TELOPT_LFLOW,
+			IAC, WILL, TELOPT_ECHO,
+			IAC, WILL, TELOPT_SGA
+		};
+		memcpy(TS_BUF2, iacs_to_send, sizeof(iacs_to_send));
+		ts->rdidx2 = sizeof(iacs_to_send);
+		ts->size2 = sizeof(iacs_to_send);
+	}
 
-	pid = fork();
+	fflush(NULL); /* flush all streams */
+	pid = vfork(); /* NOMMU-friendly */
 	if (pid < 0) {
 		free(ts);
 		close(fd);
-		bb_perror_msg("fork");
+		/* sock will be closed by caller */
+		bb_perror_msg("vfork");
 		return NULL;
 	}
 	if (pid > 0) {
-		/* parent */
+		/* Parent */
 		ts->shell_pid = pid;
 		return ts;
 	}
 
-	/* child */
+	/* Child */
+	/* Careful - we are after vfork! */
 
 	/* make new session and process group */
 	setsid();
+
+	/* Restore default signal handling */
+	bb_signals((1 << SIGCHLD) + (1 << SIGPIPE), SIG_DFL);
 
 	/* open the child's side of the tty. */
 	/* NB: setsid() disconnects from any previous ctty's. Therefore
@@ -298,21 +244,38 @@ make_new_session(
 	 * cooked mode, and with XTABS CRMOD enabled (see tty(4)). */
 	tcgetattr(0, &termbuf);
 	termbuf.c_lflag |= ECHO; /* if we use readline we dont want this */
-	termbuf.c_oflag |= ONLCR|XTABS;
+	termbuf.c_oflag |= ONLCR | XTABS;
 	termbuf.c_iflag |= ICRNL;
 	termbuf.c_iflag &= ~IXOFF;
 	/*termbuf.c_lflag &= ~ICANON;*/
 	tcsetattr(0, TCSANOW, &termbuf);
 
+	/* Uses FILE-based I/O to stdout, but does fflush(stdout),
+	 * so should be safe with vfork.
+	 * I fear, though, that some users will have ridiculously big
+	 * issue files, and they may block writing to fd 1,
+	 * (parent is supposed to read it, but parent waits
+	 * for vforked child to exec!) */
 	print_login_issue(issuefile, NULL);
 
-	/* exec shell / login /whatever */
+	/* Exec shell / login / whatever */
 	login_argv[0] = loginpath;
 	login_argv[1] = NULL;
-	execv(loginpath, (char **)login_argv);
-	/* Hmmm... this gets sent to the client thru fd#2! Is it ok?? */
-	bb_perror_msg_and_die("execv %s", loginpath);
+	/* exec busybox applet (if PREFER_APPLETS=y), if that fails,
+	 * exec external program */
+	BB_EXECVP(loginpath, (char **)login_argv);
+	/* _exit is safer with vfork, and we shouldn't send message
+	 * to remote clients anyway */
+	_exit(1); /*bb_perror_msg_and_die("execv %s", loginpath);*/
 }
+
+/* Must match getopt32 string */
+enum {
+	OPT_WATCHCHILD = (1 << 2), /* -K */
+	OPT_INETD      = (1 << 3) * ENABLE_FEATURE_TELNETD_STANDALONE, /* -i */
+	OPT_PORT       = (1 << 4) * ENABLE_FEATURE_TELNETD_STANDALONE, /* -p */
+	OPT_FOREGROUND = (1 << 6) * ENABLE_FEATURE_TELNETD_STANDALONE, /* -F */
+};
 
 #if ENABLE_FEATURE_TELNETD_STANDALONE
 
@@ -321,7 +284,10 @@ free_session(struct tsession *ts)
 {
 	struct tsession *t = sessions;
 
-	/* unlink this telnet session from the session list */
+	if (option_mask32 & OPT_INETD)
+		exit(0);
+
+	/* Unlink this telnet session from the session list */
 	if (t == ts)
 		sessions = ts->next;
 	else {
@@ -330,46 +296,75 @@ free_session(struct tsession *ts)
 		t->next = ts->next;
 	}
 
+#if 0
+	/* It was said that "normal" telnetd just closes ptyfd,
+	 * doesn't send SIGKILL. When we close ptyfd,
+	 * kernel sends SIGHUP to processes having slave side opened. */
 	kill(ts->shell_pid, SIGKILL);
 	wait4(ts->shell_pid, NULL, 0, NULL);
+#endif
 	close(ts->ptyfd);
 	close(ts->sockfd_read);
-	/* error if ts->sockfd_read == ts->sockfd_write. So what? ;) */
-	close(ts->sockfd_write);
+	/* We do not need to close(ts->sockfd_write), it's the same
+	 * as sockfd_read unless we are in inetd mode. But in inetd mode
+	 * we do not reach this */
 	free(ts);
 
-	/* scan all sessions and find new maxfd */
-	ts = sessions;
+	/* Scan all sessions and find new maxfd */
 	maxfd = 0;
+	ts = sessions;
 	while (ts) {
 		if (maxfd < ts->ptyfd)
 			maxfd = ts->ptyfd;
 		if (maxfd < ts->sockfd_read)
 			maxfd = ts->sockfd_read;
+#if 0
+		/* Again, sockfd_write == sockfd_read here */
 		if (maxfd < ts->sockfd_write)
 			maxfd = ts->sockfd_write;
+#endif
 		ts = ts->next;
 	}
 }
 
 #else /* !FEATURE_TELNETD_STANDALONE */
 
-/* Never actually called */
-void free_session(struct tsession *ts);
+/* Used in main() only, thus "return 0" actually is exit(0). */
+#define free_session(ts) return 0
 
 #endif
 
+static void handle_sigchld(int sig ATTRIBUTE_UNUSED)
+{
+	pid_t pid;
+	struct tsession *ts;
 
-int telnetd_main(int argc, char **argv);
-int telnetd_main(int argc, char **argv)
+	/* Looping: more than one child may have exited */
+	while (1) {
+		pid = wait_any_nohang(NULL);
+		if (pid <= 0)
+			break;
+		ts = sessions;
+		while (ts) {
+			if (ts->shell_pid == pid) {
+				ts->shell_pid = -1;
+				break;
+			}
+			ts = ts->next;
+		}
+	}
+}
+
+int telnetd_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int telnetd_main(int argc ATTRIBUTE_UNUSED, char **argv)
 {
 	fd_set rdfdset, wrfdset;
 	unsigned opt;
-	int selret, maxlen, w, r;
+	int count;
 	struct tsession *ts;
 #if ENABLE_FEATURE_TELNETD_STANDALONE
 #define IS_INETD (opt & OPT_INETD)
-	int master_fd = -1; /* be happy, gcc */
+	int master_fd = master_fd; /* be happy, gcc */
 	unsigned portnbr = 23;
 	char *opt_bindaddr = NULL;
 	char *opt_portnbr;
@@ -380,28 +375,29 @@ int telnetd_main(int argc, char **argv)
 		portnbr = 23,
 	};
 #endif
-	enum {
-		OPT_PORT = 4 * ENABLE_FEATURE_TELNETD_STANDALONE,
-		OPT_FOREGROUND = 0x10 * ENABLE_FEATURE_TELNETD_STANDALONE,
-		OPT_INETD = 0x20 * ENABLE_FEATURE_TELNETD_STANDALONE,
-	};
-
-	opt = getopt32(argv, "f:l:" USE_FEATURE_TELNETD_STANDALONE("p:b:Fi"),
+	/* Even if !STANDALONE, we accept (and ignore) -i, thus people
+	 * don't need to guess whether it's ok to pass -i to us */
+	opt = getopt32(argv, "f:l:Ki" USE_FEATURE_TELNETD_STANDALONE("p:b:F"),
 			&issuefile, &loginpath
 			USE_FEATURE_TELNETD_STANDALONE(, &opt_portnbr, &opt_bindaddr));
+	if (!IS_INETD /*&& !re_execed*/) {
+		/* inform that we start in standalone mode?
+		 * May be useful when people forget to give -i */
+		/*bb_error_msg("listening for connections");*/
+		if (!(opt & OPT_FOREGROUND)) {
+			/* DAEMON_CHDIR_ROOT was giving inconsistent
+			 * behavior with/without -F, -i */
+			bb_daemonize_or_rexec(0 /*was DAEMON_CHDIR_ROOT*/, argv);
+		}
+	}
 	/* Redirect log to syslog early, if needed */
 	if (IS_INETD || !(opt & OPT_FOREGROUND)) {
 		openlog(applet_name, 0, LOG_USER);
 		logmode = LOGMODE_SYSLOG;
 	}
-	//if (opt & 1) // -f
-	//if (opt & 2) // -l
 	USE_FEATURE_TELNETD_STANDALONE(
-		if (opt & OPT_PORT) // -p
+		if (opt & OPT_PORT)
 			portnbr = xatou16(opt_portnbr);
-		//if (opt & 8) // -b
-		//if (opt & 0x10) // -F
-		//if (opt & 0x20) // -i
 	);
 
 	/* Used to check access(loginpath, X_OK) here. Pointless.
@@ -409,52 +405,83 @@ int telnetd_main(int argc, char **argv)
 
 #if ENABLE_FEATURE_TELNETD_STANDALONE
 	if (IS_INETD) {
-		sessions = make_new_session(0, 1);
+		sessions = make_new_session(0);
+		if (!sessions) /* pty opening or vfork problem, exit */
+			return 1; /* make_new_session prints error message */
 	} else {
 		master_fd = create_and_bind_stream_or_die(opt_bindaddr, portnbr);
 		xlisten(master_fd, 1);
-		if (!(opt & OPT_FOREGROUND))
-			bb_daemonize(DAEMON_CHDIR_ROOT);
 	}
 #else
 	sessions = make_new_session();
+	if (!sessions) /* pty opening or vfork problem, exit */
+		return 1; /* make_new_session prints error message */
 #endif
 
 	/* We don't want to die if just one session is broken */
 	signal(SIGPIPE, SIG_IGN);
 
+	if (opt & OPT_WATCHCHILD)
+		signal(SIGCHLD, handle_sigchld);
+	else /* prevent dead children from becoming zombies */
+		signal(SIGCHLD, SIG_IGN);
+
+/*
+   This is how the buffers are used. The arrows indicate the movement
+   of data.
+   +-------+     wridx1++     +------+     rdidx1++     +----------+
+   |       | <--------------  | buf1 | <--------------  |          |
+   |       |     size1--      +------+     size1++      |          |
+   |  pty  |                                            |  socket  |
+   |       |     rdidx2++     +------+     wridx2++     |          |
+   |       |  --------------> | buf2 |  --------------> |          |
+   +-------+     size2++      +------+     size2--      +----------+
+
+   size1: "how many bytes are buffered for pty between rdidx1 and wridx1?"
+   size2: "how many bytes are buffered for socket between rdidx2 and wridx2?"
+
+   Each session has got two buffers. Buffers are circular. If sizeN == 0,
+   buffer is empty. If sizeN == BUFSIZE, buffer is full. In both these cases
+   rdidxN == wridxN.
+*/
  again:
 	FD_ZERO(&rdfdset);
 	FD_ZERO(&wrfdset);
+
+	/* Select on the master socket, all telnet sockets and their
+	 * ptys if there is room in their session buffers.
+	 * NB: scalability problem: we recalculate entire bitmap
+	 * before each select. Can be a problem with 500+ connections. */
+	ts = sessions;
+	while (ts) {
+		struct tsession *next = ts->next; /* in case we free ts. */
+		if (ts->shell_pid == -1) {
+			/* Child died and we detected that */
+			free_session(ts);
+		} else {
+			if (ts->size1 > 0)       /* can write to pty */
+				FD_SET(ts->ptyfd, &wrfdset);
+			if (ts->size1 < BUFSIZE) /* can read from socket */
+				FD_SET(ts->sockfd_read, &rdfdset);
+			if (ts->size2 > 0)       /* can write to socket */
+				FD_SET(ts->sockfd_write, &wrfdset);
+			if (ts->size2 < BUFSIZE) /* can read from pty */
+				FD_SET(ts->ptyfd, &rdfdset);
+		}
+		ts = next;
+	}
 	if (!IS_INETD) {
 		FD_SET(master_fd, &rdfdset);
 		/* This is needed because free_session() does not
-		 * take into account master_fd when it finds new
-		 * maxfd among remaining fd's: */
+		 * take master_fd into account when it finds new
+		 * maxfd among remaining fd's */
 		if (master_fd > maxfd)
 			maxfd = master_fd;
 	}
 
-	/* select on the master socket, all telnet sockets and their
-	 * ptys if there is room in their session buffers. */
-	ts = sessions;
-	while (ts) {
-		/* buf1 is used from socket to pty
-		 * buf2 is used from pty to socket */
-		if (ts->size1 > 0)       /* can write to pty */
-			FD_SET(ts->ptyfd, &wrfdset);
-		if (ts->size1 < BUFSIZE) /* can read from socket */
-			FD_SET(ts->sockfd_read, &rdfdset);
-		if (ts->size2 > 0)       /* can write to socket */
-			FD_SET(ts->sockfd_write, &wrfdset);
-		if (ts->size2 < BUFSIZE) /* can read from pty */
-			FD_SET(ts->ptyfd, &rdfdset);
-		ts = ts->next;
-	}
-
-	selret = select(maxfd + 1, &rdfdset, &wrfdset, 0, 0);
-	if (!selret)
-		return 0;
+	count = select(maxfd + 1, &rdfdset, &wrfdset, NULL, NULL);
+	if (count < 0)
+		goto again; /* EINTR or ENOMEM */
 
 #if ENABLE_FEATURE_TELNETD_STANDALONE
 	/* First check for and accept new sessions. */
@@ -462,11 +489,11 @@ int telnetd_main(int argc, char **argv)
 		int fd;
 		struct tsession *new_ts;
 
-		fd = accept(master_fd, NULL, 0);
+		fd = accept(master_fd, NULL, NULL);
 		if (fd < 0)
 			goto again;
 		/* Create a new session and link it into our active list */
-		new_ts = make_new_session(fd, fd);
+		new_ts = make_new_session(fd);
 		if (new_ts) {
 			new_ts->next = sessions;
 			sessions = new_ts;
@@ -481,83 +508,44 @@ int telnetd_main(int argc, char **argv)
 	while (ts) { /* For all sessions... */
 		struct tsession *next = ts->next; /* in case we free ts. */
 
-		if (ts->size1 && FD_ISSET(ts->ptyfd, &wrfdset)) {
+		if (/*ts->size1 &&*/ FD_ISSET(ts->ptyfd, &wrfdset)) {
 			int num_totty;
-			char *ptr;
+			unsigned char *ptr;
 			/* Write to pty from buffer 1. */
 			ptr = remove_iacs(ts, &num_totty);
-			w = safe_write(ts->ptyfd, ptr, num_totty);
-			/* needed? if (w < 0 && errno == EAGAIN) continue; */
-			if (w < 0) {
-				if (IS_INETD)
-					return 0;
-				free_session(ts);
-				ts = next;
-				continue;
+			count = safe_write(ts->ptyfd, ptr, num_totty);
+			if (count < 0) {
+				if (errno == EAGAIN)
+					goto skip1;
+				goto kill_session;
 			}
-			ts->wridx1 += w;
-			ts->size1 -= w;
-			if (ts->wridx1 == BUFSIZE)
+			ts->size1 -= count;
+			ts->wridx1 += count;
+			if (ts->wridx1 >= BUFSIZE) /* actually == BUFSIZE */
 				ts->wridx1 = 0;
 		}
-
-		if (ts->size2 && FD_ISSET(ts->sockfd_write, &wrfdset)) {
+ skip1:
+		if (/*ts->size2 &&*/ FD_ISSET(ts->sockfd_write, &wrfdset)) {
 			/* Write to socket from buffer 2. */
-			maxlen = MIN(BUFSIZE - ts->wridx2, ts->size2);
-			w = safe_write(ts->sockfd_write, ts->buf2 + ts->wridx2, maxlen);
-			/* needed? if (w < 0 && errno == EAGAIN) continue; */
-			if (w < 0) {
-				if (IS_INETD)
-					return 0;
-				free_session(ts);
-				ts = next;
-				continue;
+			count = MIN(BUFSIZE - ts->wridx2, ts->size2);
+			count = safe_write(ts->sockfd_write, TS_BUF2 + ts->wridx2, count);
+			if (count < 0) {
+				if (errno == EAGAIN)
+					goto skip2;
+				goto kill_session;
 			}
-			ts->wridx2 += w;
-			ts->size2 -= w;
-			if (ts->wridx2 == BUFSIZE)
+			ts->size2 -= count;
+			ts->wridx2 += count;
+			if (ts->wridx2 >= BUFSIZE) /* actually == BUFSIZE */
 				ts->wridx2 = 0;
 		}
-
-		if (ts->size1 < BUFSIZE && FD_ISSET(ts->sockfd_read, &rdfdset)) {
-			/* Read from socket to buffer 1. */
-			maxlen = MIN(BUFSIZE - ts->rdidx1, BUFSIZE - ts->size1);
-			r = safe_read(ts->sockfd_read, ts->buf1 + ts->rdidx1, maxlen);
-			if (r < 0 && errno == EAGAIN) continue;
-			if (r <= 0) {
-				if (IS_INETD)
-					return 0;
-				free_session(ts);
-				ts = next;
-				continue;
-			}
-			if (!ts->buf1[ts->rdidx1 + r - 1])
-				if (!--r)
-					continue;
-			ts->rdidx1 += r;
-			ts->size1 += r;
-			if (ts->rdidx1 == BUFSIZE)
-				ts->rdidx1 = 0;
-		}
-
-		if (ts->size2 < BUFSIZE && FD_ISSET(ts->ptyfd, &rdfdset)) {
-			/* Read from pty to buffer 2. */
-			maxlen = MIN(BUFSIZE - ts->rdidx2, BUFSIZE - ts->size2);
-			r = safe_read(ts->ptyfd, ts->buf2 + ts->rdidx2, maxlen);
-			if (r < 0 && errno == EAGAIN) continue;
-			if (r <= 0) {
-				if (IS_INETD)
-					return 0;
-				free_session(ts);
-				ts = next;
-				continue;
-			}
-			ts->rdidx2 += r;
-			ts->size2 += r;
-			if (ts->rdidx2 == BUFSIZE)
-				ts->rdidx2 = 0;
-		}
-
+ skip2:
+		/* Should not be needed, but... remove_iacs is actually buggy
+		 * (it cannot process iacs which wrap around buffer's end)!
+		 * Since properly fixing it requires writing bigger code,
+		 * we rely instead on this code making it virtually impossible
+		 * to have wrapped iac (people don't type at 2k/second).
+		 * It also allows for bigger reads in common case. */
 		if (ts->size1 == 0) {
 			ts->rdidx1 = 0;
 			ts->wridx1 = 0;
@@ -566,7 +554,47 @@ int telnetd_main(int argc, char **argv)
 			ts->rdidx2 = 0;
 			ts->wridx2 = 0;
 		}
+
+		if (/*ts->size1 < BUFSIZE &&*/ FD_ISSET(ts->sockfd_read, &rdfdset)) {
+			/* Read from socket to buffer 1. */
+			count = MIN(BUFSIZE - ts->rdidx1, BUFSIZE - ts->size1);
+			count = safe_read(ts->sockfd_read, TS_BUF1 + ts->rdidx1, count);
+			if (count <= 0) {
+				if (count < 0 && errno == EAGAIN)
+					goto skip3;
+				goto kill_session;
+			}
+			/* Ignore trailing NUL if it is there */
+			if (!TS_BUF1[ts->rdidx1 + count - 1]) {
+				--count;
+			}
+			ts->size1 += count;
+			ts->rdidx1 += count;
+			if (ts->rdidx1 >= BUFSIZE) /* actually == BUFSIZE */
+				ts->rdidx1 = 0;
+		}
+ skip3:
+		if (/*ts->size2 < BUFSIZE &&*/ FD_ISSET(ts->ptyfd, &rdfdset)) {
+			/* Read from pty to buffer 2. */
+			count = MIN(BUFSIZE - ts->rdidx2, BUFSIZE - ts->size2);
+			count = safe_read(ts->ptyfd, TS_BUF2 + ts->rdidx2, count);
+			if (count <= 0) {
+				if (count < 0 && errno == EAGAIN)
+					goto skip4;
+				goto kill_session;
+			}
+			ts->size2 += count;
+			ts->rdidx2 += count;
+			if (ts->rdidx2 >= BUFSIZE) /* actually == BUFSIZE */
+				ts->rdidx2 = 0;
+		}
+ skip4:
+		ts = next;
+		continue;
+ kill_session:
+		free_session(ts);
 		ts = next;
 	}
+
 	goto again;
 }

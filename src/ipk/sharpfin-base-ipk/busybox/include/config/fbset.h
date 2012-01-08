@@ -1,1 +1,1 @@
-#undef CONFIG_FBSET
+#define CONFIG_FBSET 1

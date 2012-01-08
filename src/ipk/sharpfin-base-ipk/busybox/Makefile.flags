@@ -3,6 +3,7 @@
 # ==========================================================================
 
 BB_VER = $(VERSION).$(PATCHLEVEL).$(SUBLEVEL)$(EXTRAVERSION)
+export BB_VER
 SKIP_STRIP = n
 
 # -std=gnu99 needed for [U]LLONG_MAX on some systems
@@ -19,6 +20,7 @@ CPPFLAGS += \
 # flag checks are grouped together to speed the checks up a bit..
 CFLAGS += $(call cc-option,-Wall -Wshadow -Wwrite-strings,)
 CFLAGS += $(call cc-option,-Wundef -Wstrict-prototypes,)
+CFLAGS += $(call cc-option,-Wunused -Wunused-parameter,)
 # If you want to add "-Wmissing-prototypes -Wmissing-declarations" above
 # (or anything else for that matter) make sure that it is still possible
 # to build bbox without warnings. Current offender: find.c:alloc_action().
@@ -55,30 +57,36 @@ ifeq ($(CONFIG_DEBUG),y)
 CFLAGS += $(call cc-option,-g)
 endif
 
+ifeq ($(CONFIG_BUILD_LIBBUSYBOX),y)
+# on i386: 14% smaller libbusybox.so
+# (code itself is 9% bigger, we save on relocs/PLT/GOT)
+CFLAGS += -fpic
+# and another 4% reduction of libbusybox.so:
+# (external entry points must be marked EXTERNALLY_VISIBLE)
+CFLAGS += $(call cc-option,-fvisibility=hidden)
+endif
+
 ifeq ($(CONFIG_STATIC),y)
 LDFLAGS += -static
 endif
 
-BBOX_LIB_LIST = m crypt
+LDLIBS += m crypt
 
 ifeq ($(CONFIG_PAM),y)
-BBOX_LIB_LIST += pam pam_misc
+LDLIBS += pam pam_misc
 endif
 
 ifeq ($(CONFIG_SELINUX),y)
-BBOX_LIB_LIST += selinux sepol
+LDLIBS += selinux sepol
 endif
 
 ifeq ($(CONFIG_EFENCE),y)
-BBOX_LIB_LIST += efence
+LDLIBS += efence
 endif
 
 ifeq ($(CONFIG_DMALLOC),y)
-BBOX_LIB_LIST += dmalloc
+LDLIBS += dmalloc
 endif
-
-# For scripts/trylink
-export BBOX_LIB_LIST
 
 #LDFLAGS += -nostdlib
 
@@ -90,4 +98,5 @@ endif
 # Busybox is a stack-fatty so make sure we increase default size
 # TODO: use "make stksizes" to find & fix big stack users
 # (we stole scripts/checkstack.pl from the kernel... thanks guys!)
-FLTFLAGS += -s 20000
+# Reduced from 20k to 16k in 1.9.0.
+FLTFLAGS += -s 16000

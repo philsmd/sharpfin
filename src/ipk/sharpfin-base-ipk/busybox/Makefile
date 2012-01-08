@@ -1,6 +1,6 @@
 VERSION = 1
-PATCHLEVEL = 7
-SUBLEVEL = 2
+PATCHLEVEL = 10
+SUBLEVEL = 3
 EXTRAVERSION =
 NAME = Unnamed
 
@@ -437,7 +437,6 @@ libs-y		:= \
 		editors/ \
 		findutils/ \
 		init/ \
-		ipsvd/ \
 		libbb/ \
 		libpwdgrp/ \
 		loginutils/ \
@@ -446,12 +445,14 @@ libs-y		:= \
 		networking/ \
 		networking/libiproute/ \
 		networking/udhcp/ \
+		printutils/ \
 		procps/ \
 		runit/ \
 		selinux/ \
 		shell/ \
 		sysklogd/ \
 		util-linux/ \
+		util-linux/volume_id/ \
 
 endif # KBUILD_EXTMOD
 
@@ -568,11 +569,14 @@ busybox-all  := $(core-y) $(libs-y)
 # Rule to link busybox - also used during CONFIG_KALLSYMS
 # May be overridden by arch/$(ARCH)/Makefile
 quiet_cmd_busybox__ ?= LINK    $@
-      cmd_busybox__ ?= $(srctree)/scripts/trylink $(CC) $(LDFLAGS) \
-      -o $@ -Wl,-Map -Wl,$@.map \
-      -Wl,--warn-common -Wl,--sort-common -Wl,--gc-sections \
-      -Wl,--start-group $(busybox-all) -Wl,--end-group \
-      $(LDLIBS)
+      cmd_busybox__ ?= $(srctree)/scripts/trylink \
+      "$@" \
+      "$(CC)" \
+      "$(CFLAGS)" \
+      "$(LDFLAGS) $(EXTRA_LDFLAGS)" \
+      "$(core-y)" \
+      "$(libs-y)" \
+      "$(LDLIBS)"
 
 # Generate System.map
 quiet_cmd_sysmap = SYSMAP
@@ -727,7 +731,7 @@ localver = $(subst $(space),, \
 # Currently, only git is supported.
 # Other SCMs can edit scripts/setlocalversion and add the appropriate
 # checks as needed.
-ifdef CONFIG_LOCALVERSION_AUTO
+ifdef _BB_DISABLED_CONFIG_LOCALVERSION_AUTO
 	_localver-auto = $(shell $(CONFIG_SHELL) \
 	                  $(srctree)/scripts/setlocalversion $(srctree))
 	localver-auto  = $(LOCALVERSION)$(_localver-auto)
@@ -840,7 +844,7 @@ depend dep:
 # ---------------------------------------------------------------------------
 # Modules
 
-ifdef CONFIG_MODULES
+ifdef _BB_DISABLED_CONFIG_MODULES
 
 # 	By default, build modules as well
 
@@ -926,6 +930,8 @@ MRPROPER_FILES += .config .config.old include/asm .version .old_version \
 		  include/autoconf.h \
 		  include/bbconfigopts.h \
 		  include/usage_compressed.h \
+		  include/applet_tables.h \
+		  applets/usage \
 		  .kernelrelease Module.symvers tags TAGS cscope*
 
 # clean - Delete most, but leave enough to build external modules
@@ -968,7 +974,7 @@ distclean: mrproper
 	@find $(srctree) $(RCS_FIND_IGNORE) \
 	 	\( -name '*.orig' -o -name '*.rej' -o -name '*~' \
 		-o -name '*.bak' -o -name '#*#' -o -name '.*.orig' \
-	 	-o -name '.*.rej' -o -size 0 \
+	 	-o -name '.*.rej' -o -name '*.tmp' -o -size 0 \
 		-o -name '*%' -o -name '.*.cmd' -o -name 'core' \) \
 		-type f -print | xargs rm -f
 

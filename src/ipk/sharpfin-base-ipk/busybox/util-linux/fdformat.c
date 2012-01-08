@@ -1,12 +1,7 @@
 /* vi: set sw=4 ts=4: */
 /* fdformat.c  -  Low-level formats a floppy disk - Werner Almesberger */
 
-/* 1999-02-22 Arkadiusz Mi¶kiewicz <misiek@pld.ORG.PL>
- * - added Native Language Support
- * 1999-03-20 Arnaldo Carvalho de Melo <acme@conectiva.com.br>
- * - more i18n/nls translatable strings marked
- *
- * 5 July 2003 -- modified for Busybox by Erik Andersen
+/* 5 July 2003 -- modified for Busybox by Erik Andersen
  */
 
 #include "libbb.h"
@@ -45,8 +40,8 @@ struct format_descr {
 #define FDGETPRM _IOR(2, 0x04, struct floppy_struct)
 #define FD_FILL_BYTE 0xF6 /* format fill byte. */
 
-int fdformat_main(int argc,char **argv);
-int fdformat_main(int argc,char **argv)
+int fdformat_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int fdformat_main(int argc ATTRIBUTE_UNUSED, char **argv)
 {
 	int fd, n, cyl, read_bytes, verify;
 	unsigned char *data;
@@ -54,9 +49,7 @@ int fdformat_main(int argc,char **argv)
 	struct floppy_struct param;
 	struct format_descr descr;
 
-	if (argc < 2) {
-		bb_show_usage();
-	}
+	opt_complementary = "=1"; /* must have 1 param */
 	verify = !getopt32(argv, "n");
 	argv += optind;
 
@@ -116,7 +109,7 @@ int fdformat_main(int argc,char **argv)
 			/* Check backwards so we don't need a counter */
 			while (--read_bytes >= 0) {
 				if (data[read_bytes] != FD_FILL_BYTE) {
-					 printf("bad data in cyl %d\nContinuing... ",cyl);
+					 printf("bad data in cyl %d\nContinuing... ", cyl);
 				}
 			}
 		}

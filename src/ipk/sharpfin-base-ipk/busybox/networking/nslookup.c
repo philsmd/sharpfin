@@ -69,7 +69,7 @@ static int print_host(const char *hostname, const char *header)
 		unsigned cnt = 0;
 
 		printf("%-10s %s\n", header, hostname);
-		// printf("%s\n", cur->ai_canonname); ?
+		// puts(cur->ai_canonname); ?
 		while (cur) {
 			char *dotted, *revhost;
 			dotted = xmalloc_sockaddr2dotted_noport(cur->ai_addr);
@@ -112,7 +112,7 @@ static void server_print(void)
 	print_host(server, "Server:");
 	if (ENABLE_FEATURE_CLEAN_UP)
 		free(server);
-	puts("");
+	bb_putchar('\n');
 }
 
 /* alter the global _res nameserver structure to use
@@ -127,7 +127,7 @@ static void set_default_dns(char *server)
 	}
 }
 
-int nslookup_main(int argc, char **argv);
+int nslookup_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int nslookup_main(int argc, char **argv)
 {
 	/* We allow 1 or 2 arguments.

@@ -24,7 +24,7 @@
 
 /* This is a NOFORK applet. Be very careful! */
 
-int basename_main(int argc, char **argv);
+int basename_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int basename_main(int argc, char **argv)
 {
 	size_t m, n;
@@ -34,7 +34,8 @@ int basename_main(int argc, char **argv)
 		bb_show_usage();
 	}
 
-	s = bb_get_last_path_component(*++argv);
+	/* It should strip slash: /abc/def/ -> def */
+	s = bb_get_last_path_component_strip(*++argv);
 
 	if (*++argv) {
 		n = strlen(*argv);

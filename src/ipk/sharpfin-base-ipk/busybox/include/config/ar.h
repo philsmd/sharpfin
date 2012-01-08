@@ -1,1 +1,1 @@
-#undef CONFIG_AR
+#define CONFIG_AR 1

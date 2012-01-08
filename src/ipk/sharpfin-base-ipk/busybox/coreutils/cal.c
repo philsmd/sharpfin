@@ -75,7 +75,7 @@ static char *build_row(char *p, unsigned *dp);
 #define	J_WEEK_LEN	(WEEK_LEN + 7)
 #define	HEAD_SEP	2		/* spaces between day headings */
 
-int cal_main(int argc, char **argv);
+int cal_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int cal_main(int argc, char **argv)
 {
 	struct tm *local_time;
@@ -167,7 +167,7 @@ int cal_main(int argc, char **argv)
 			if (!julian) {
 				printf("%*s%s", HEAD_SEP, "", day_headings);
 			}
-			putchar('\n');
+			bb_putchar('\n');
 			for (row = 0; row < (6*7); row += 7) {
 				for (which_cal = 0; which_cal < 3-julian; which_cal++) {
 					dp = days[month + which_cal] + row;

@@ -74,9 +74,11 @@ typedef struct {
 #endif
 } action;
 #define ACTS(name, arg...) typedef struct { action a; arg; } action_##name;
-#define ACTF(name)         static int func_##name(const char *fileName, struct stat *statbuf, action_##name* ap)
+#define ACTF(name)         static int func_##name(const char *fileName ATTRIBUTE_UNUSED, \
+                                                  struct stat *statbuf ATTRIBUTE_UNUSED, \
+                                                  action_##name* ap ATTRIBUTE_UNUSED)
                          ACTS(print)
-                         ACTS(name,  const char *pattern;)
+                         ACTS(name,  const char *pattern; bool iname;)
 USE_FEATURE_FIND_PATH(   ACTS(path,  const char *pattern;))
 USE_FEATURE_FIND_REGEX(  ACTS(regex, regex_t compiled_pattern;))
 USE_FEATURE_FIND_PRINT0( ACTS(print0))
@@ -188,8 +190,9 @@ ACTF(name)
 		if (*tmp == '/')
 			tmp++;
 	}
-	return fnmatch(ap->pattern, tmp, FNM_PERIOD) == 0;
+	return fnmatch(ap->pattern, tmp, FNM_PERIOD | (ap->iname ? FNM_CASEFOLD : 0)) == 0;
 }
+
 #if ENABLE_FEATURE_FIND_PATH
 ACTF(path)
 {
@@ -277,7 +280,7 @@ ACTF(exec)
 
 	rc = spawn_and_wait(argv);
 	if (rc < 0)
-		bb_perror_msg("%s", argv[0]);
+		bb_simple_perror_msg(argv[0]);
 
 	i = 0;
 	while (argv[i])
@@ -347,7 +350,7 @@ ACTF(delete)
 		rc = unlink(fileName);
 	}
 	if (rc < 0)
-		bb_perror_msg("%s", fileName);
+		bb_simple_perror_msg(fileName);
 	return TRUE;
 }
 #endif
@@ -371,7 +374,10 @@ ACTF(context)
 #endif
 
 
-static int fileAction(const char *fileName, struct stat *statbuf, void *userData, int depth)
+static int fileAction(const char *fileName,
+		struct stat *statbuf,
+		void *userData SKIP_FEATURE_FIND_MAXDEPTH(ATTRIBUTE_UNUSED),
+		int depth SKIP_FEATURE_FIND_MAXDEPTH(ATTRIBUTE_UNUSED))
 {
 	int i;
 #if ENABLE_FEATURE_FIND_MAXDEPTH
@@ -458,6 +464,7 @@ static action*** parse_params(char **argv)
 	USE_FEATURE_FIND_PAREN(  PARM_char_brace,)
 	/* All options starting from here require argument */
 	                         PARM_name      ,
+	                         PARM_iname     ,
 	USE_FEATURE_FIND_PATH(   PARM_path      ,)
 	USE_FEATURE_FIND_REGEX(  PARM_regex     ,)
 	USE_FEATURE_FIND_TYPE(   PARM_type      ,)
@@ -490,6 +497,7 @@ static action*** parse_params(char **argv)
 	USE_FEATURE_FIND_PAREN(  "(\0"       )
 	/* All options starting from here require argument */
 	                         "-name\0"
+	                         "-iname\0"
 	USE_FEATURE_FIND_PATH(   "-path\0"   )
 	USE_FEATURE_FIND_REGEX(  "-regex\0"  )
 	USE_FEATURE_FIND_TYPE(   "-type\0"   )
@@ -509,7 +517,10 @@ static action*** parse_params(char **argv)
 	unsigned cur_action = 0;
 	USE_FEATURE_FIND_NOT( bool invert_flag = 0; )
 
-	/* 'static' doesn't work here! (gcc 4.1.2) */
+	/* This is the only place in busybox where we use nested function.
+	 * So far more standard alternatives were bigger. */
+	/* Suppress a warning "func without a prototype" */
+	auto action* alloc_action(int sizeof_struct, action_fp f);
 	action* alloc_action(int sizeof_struct, action_fp f)
 	{
 		action *ap;
@@ -654,10 +665,11 @@ static action*** parse_params(char **argv)
 			argv = endarg;
 		}
 #endif
-		else if (parm == PARM_name) {
+		else if (parm == PARM_name || parm == PARM_iname) {
 			action_name *ap;
 			ap = ALLOC_ACTION(name);
 			ap->pattern = arg1;
+			ap->iname = (parm == PARM_iname);
 		}
 #if ENABLE_FEATURE_FIND_PATH
 		else if (parm == PARM_path) {
@@ -780,7 +792,7 @@ static action*** parse_params(char **argv)
 			ap->context = NULL;
 			/* SELinux headers erroneously declare non-const parameter */
 			if (selinux_raw_to_trans_context((char*)arg1, &ap->context))
-				bb_perror_msg("%s", arg1);
+				bb_simple_perror_msg(arg1);
 		}
 #endif
 		else {
@@ -794,7 +806,7 @@ static action*** parse_params(char **argv)
 }
 
 
-int find_main(int argc, char **argv);
+int find_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int find_main(int argc, char **argv)
 {
 	static const char options[] ALIGN1 =

@@ -1,5 +1,7 @@
 #if ENABLE_FEATURE_SGI_LABEL
 
+#define SGI_DEBUG 0
+
 /*
  * Copyright (C) Andreas Neuper, Sep 1998.
  *      This file may be modified and redistributed under
@@ -117,9 +119,8 @@ typedef struct {
  */
 
 
-static int sgi_other_endian;
-static int debug;
-static short sgi_volumes = 1;
+static smallint sgi_other_endian; /* bool */
+static smallint sgi_volumes = 1; /* max 15 */
 
 /*
  * only dealing with free blocks here
@@ -248,7 +249,7 @@ check_sgi_label(void)
 	}
 	update_units();
 	current_label_type = label_sgi;
-	partitions = 16;
+	g_partitions = 16;
 	sgi_volumes = 15;
 	return 1;
 }
@@ -295,7 +296,7 @@ sgi_list_table(int xtra)
 			"%d extra sects/cyl, interleave %d:1\n"
 			"%s\n"
 			"Units = %s of %d * 512 bytes\n\n",
-			disk_device, heads, sectors, cylinders,
+			disk_device, g_heads, g_sectors, g_cylinders,
 			SGI_SSWAP16(sgiparam.pcylcount),
 			SGI_SSWAP16(sgiparam.sparecyl),
 			SGI_SSWAP16(sgiparam.ilfact),
@@ -305,7 +306,7 @@ sgi_list_table(int xtra)
 		printf("\nDisk %s (SGI disk label): "
 			"%d heads, %d sectors, %d cylinders\n"
 			"Units = %s of %d * 512 bytes\n\n",
-			disk_device, heads, sectors, cylinders,
+			disk_device, g_heads, g_sectors, g_cylinders,
 			str_units(PLURAL), units_per_sector );
 	}
 
@@ -317,8 +318,8 @@ sgi_list_table(int xtra)
 	printf("----- partitions -----\n"
 		"Pt# %*s  Info     Start       End   Sectors  Id  System\n",
 		w + 2, "Device");
-	for (i = 0; i < partitions; i++) {
-		if (sgi_get_num_sectors(i) || debug ) {
+	for (i = 0; i < g_partitions; i++) {
+		if (sgi_get_num_sectors(i) || SGI_DEBUG) {
 			uint32_t start = sgi_get_start_sector(i);
 			uint32_t len = sgi_get_num_sectors(i);
 			kpi++;              /* only count nonempty partitions */
@@ -359,7 +360,7 @@ sgi_set_bootpartition(int i)
 static unsigned int
 sgi_get_lastblock(void)
 {
-	return heads * sectors * cylinders;
+	return g_heads * g_sectors * g_cylinders;
 }
 
 static void
@@ -514,7 +515,7 @@ verify_sgi(int verbose)
 				"at block 0,\n"
 				"not at diskblock %d\n",
 				sgi_get_start_sector(Index[0]));
-		if (debug)      /* I do not understand how some disks fulfil it */
+		if (SGI_DEBUG)      /* I do not understand how some disks fulfil it */
 			if ((sgi_get_num_sectors(Index[0]) != lastblock) && verbose)
 				printf("The entire disk partition is only %d diskblock large,\n"
 					"but the disk is %d diskblocks long\n",
@@ -523,7 +524,7 @@ verify_sgi(int verbose)
 	} else {
 		if (verbose)
 			printf("One Partition (#11) should cover the entire disk\n");
-		if (debug > 2)
+		if (SGI_DEBUG > 2)
 			printf("sysid=%d\tpartition=%d\n",
 				sgi_get_sysid(Index[0]), Index[0]+1);
 	}
@@ -531,13 +532,13 @@ verify_sgi(int verbose)
 		int cylsize = sgi_get_nsect() * sgi_get_ntrks();
 
 		if ((sgi_get_start_sector(Index[i]) % cylsize) != 0) {
-			if (debug)      /* I do not understand how some disks fulfil it */
+			if (SGI_DEBUG)      /* I do not understand how some disks fulfil it */
 				if (verbose)
 					printf("Partition %d does not start on cylinder boundary\n",
 						Index[i]+1);
 		}
 		if (sgi_get_num_sectors(Index[i]) % cylsize != 0) {
-			if (debug)      /* I do not understand how some disks fulfil it */
+			if (SGI_DEBUG)      /* I do not understand how some disks fulfil it */
 				if (verbose)
 					printf("Partition %d does not end on cylinder boundary\n",
 						Index[i]+1);
@@ -562,7 +563,7 @@ verify_sgi(int verbose)
 		}
 		start = sgi_get_start_sector(Index[i])
 			   + sgi_get_num_sectors(Index[i]);
-		if (debug > 1) {
+		if (SGI_DEBUG > 1) {
 			if (verbose)
 				printf("%2d:%12d\t%12d\t%12d\n", Index[i],
 					sgi_get_start_sector(Index[i]),
@@ -660,7 +661,7 @@ sgi_set_entire(void)
 {
 	int n;
 
-	for (n = 10; n < partitions; n++) {
+	for (n = 10; n < g_partitions; n++) {
 		if (!sgi_get_num_sectors(n) ) {
 			sgi_set_partition(n, 0, sgi_get_lastblock(), SGI_VOLUME);
 			break;
@@ -673,7 +674,7 @@ sgi_set_volhdr(void)
 {
 	int n;
 
-	for (n = 8; n < partitions; n++) {
+	for (n = 8; n < g_partitions; n++) {
 	if (!sgi_get_num_sectors(n)) {
 		/*
 		 * 5 cylinders is an arbitrary value I like
@@ -681,8 +682,8 @@ sgi_set_volhdr(void)
 		 * (like sash, symmon, fx, ide) with ca. 3200
 		 * sectors.
 		 */
-		if (heads * sectors * 5 < sgi_get_lastblock())
-			sgi_set_partition(n, 0, heads * sectors * 5, SGI_VOLHDR);
+		if (g_heads * g_sectors * 5 < sgi_get_lastblock())
+			sgi_set_partition(n, 0, g_heads * g_sectors * 5, SGI_VOLHDR);
 			break;
 		}
 	}
@@ -780,21 +781,21 @@ create_sgilabel(void)
 
 	printf(msg_building_new_label, "SGI disklabel");
 
-	sgi_other_endian = (BYTE_ORDER == LITTLE_ENDIAN);
+	sgi_other_endian = BB_LITTLE_ENDIAN;
 	res = ioctl(fd, BLKGETSIZE, &longsectors);
 	if (!ioctl(fd, HDIO_GETGEO, &geometry)) {
-		heads = geometry.heads;
-		sectors = geometry.sectors;
+		g_heads = geometry.heads;
+		g_sectors = geometry.sectors;
 		if (res == 0) {
 			/* the get device size ioctl was successful */
-			cylinders = longsectors / (heads * sectors);
-			cylinders /= sec_fac;
+			g_cylinders = longsectors / (g_heads * g_sectors);
+			g_cylinders /= sec_fac;
 		} else {
 			/* otherwise print error and use truncated version */
-			cylinders = geometry.cylinders;
+			g_cylinders = geometry.cylinders;
 			printf(
 "Warning: BLKGETSIZE ioctl failed on %s.  Using geometry cylinder value of %d.\n"
-"This value may be truncated for devices > 33.8 GB.\n", disk_device, cylinders);
+"This value may be truncated for devices > 33.8 GB.\n", disk_device, g_cylinders);
 		}
 	}
 	for (i = 0; i < 4; i++) {
@@ -805,7 +806,7 @@ create_sgilabel(void)
 				old[i].start = get_start_sect(get_part_table(i));
 				old[i].nsect = get_nr_sects(get_part_table(i));
 				printf("Trying to keep parameters of partition %d\n", i);
-				if (debug)
+				if (SGI_DEBUG)
 					printf("ID=%02x\tSTART=%d\tLENGTH=%d\n",
 				old[i].sysid, old[i].start, old[i].nsect);
 			}
@@ -851,7 +852,7 @@ create_sgilabel(void)
 	//memset( &(sgilabel->directory), 0, sizeof(struct volume_directory)*15 );
 	//memset( &(sgilabel->partitions), 0, sizeof(struct sgi_partinfo)*16 );
 	current_label_type = label_sgi;
-	partitions = 16;
+	g_partitions = 16;
 	sgi_volumes = 15;
 	sgi_set_entire();
 	sgi_set_volhdr();

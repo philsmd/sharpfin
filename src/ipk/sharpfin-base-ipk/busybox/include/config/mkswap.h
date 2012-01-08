@@ -1,1 +1,1 @@
-#undef CONFIG_MKSWAP
+#define CONFIG_MKSWAP 1

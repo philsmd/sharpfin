@@ -1,1 +1,1 @@
-#undef CONFIG_MKTEMP
+#define CONFIG_MKTEMP 1

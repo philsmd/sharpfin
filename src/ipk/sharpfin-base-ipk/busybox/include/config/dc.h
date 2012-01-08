@@ -1,1 +1,1 @@
-#undef CONFIG_DC
+#define CONFIG_DC 1

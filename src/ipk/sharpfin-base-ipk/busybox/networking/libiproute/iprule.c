@@ -16,8 +16,6 @@
  * initially integrated into busybox by Bernhard Fischer
  */
 
-#include <syslog.h>
-//#include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <arpa/inet.h>
@@ -87,11 +85,10 @@ static int print_rule(struct sockaddr_nl *who ATTRIBUTE_UNUSED,
 				r->rtm_src_len
 				);
 		} else {
-			fprintf(fp, "%s", format_host(r->rtm_family,
+			fputs(format_host(r->rtm_family,
 						       RTA_PAYLOAD(tb[RTA_SRC]),
 						       RTA_DATA(tb[RTA_SRC]),
-						       abuf, sizeof(abuf))
-				);
+						       abuf, sizeof(abuf)), fp);
 		}
 	} else if (r->rtm_src_len) {
 		fprintf(fp, "0/%d", r->rtm_src_len);
@@ -154,7 +151,7 @@ static int print_rule(struct sockaddr_nl *who ATTRIBUTE_UNUSED,
 		} else
 			fprintf(fp, "masquerade");
 	} else if (r->rtm_type != RTN_UNICAST)
-		fprintf(fp, "%s", rtnl_rtntype_n2a(r->rtm_type, b1, sizeof(b1)));
+		fputs(rtnl_rtntype_n2a(r->rtm_type, b1, sizeof(b1)), fp);
 
 	fputc('\n', fp);
 	fflush(fp);
@@ -162,7 +159,7 @@ static int print_rule(struct sockaddr_nl *who ATTRIBUTE_UNUSED,
 }
 
 /* Return value becomes exitcode. It's okay to not return at all */
-static int iprule_list(int argc, char **argv)
+static int iprule_list(char **argv)
 {
 	struct rtnl_handle rth;
 	int af = preferred_family;
@@ -170,9 +167,9 @@ static int iprule_list(int argc, char **argv)
 	if (af == AF_UNSPEC)
 		af = AF_INET;
 
-	if (argc > 0) {
+	if (*argv) {
 		//bb_error_msg("\"rule show\" needs no arguments");
-		bb_warn_ignoring_args(argc);
+		bb_warn_ignoring_args(1);
 		return -1;
 	}
 
@@ -185,7 +182,7 @@ static int iprule_list(int argc, char **argv)
 }
 
 /* Return value becomes exitcode. It's okay to not return at all */
-static int iprule_modify(int cmd, int argc, char **argv)
+static int iprule_modify(int cmd, char **argv)
 {
 	static const char keywords[] ALIGN1 =
 		"from\0""to\0""preference\0""order\0""priority\0"
@@ -221,7 +218,7 @@ static int iprule_modify(int cmd, int argc, char **argv)
 		req.r.rtm_type = RTN_UNICAST;
 	}
 
-	while (argc > 0) {
+	while (*argv) {
 		key = index_in_substrings(keywords, *argv) + 1;
 		if (key == 0) /* no match found in keywords array, bail out. */
 			bb_error_msg_and_die(bb_msg_invalid_arg, *argv, applet_name);
@@ -292,7 +289,6 @@ static int iprule_modify(int cmd, int argc, char **argv)
 				invarg(*argv, "type");
 			req.r.rtm_type = type;
 		}
-		argc--;
 		argv++;
 	}
 
@@ -311,17 +307,16 @@ static int iprule_modify(int cmd, int argc, char **argv)
 }
 
 /* Return value becomes exitcode. It's okay to not return at all */
-int do_iprule(int argc, char **argv)
+int do_iprule(char **argv)
 {
 	static const char ip_rule_commands[] ALIGN1 =
 		"add\0""delete\0""list\0""show\0";
 	int cmd = 2; /* list */
 
-	if (argc < 1)
-		return iprule_list(0, NULL);
-	if (*argv)
-		cmd = index_in_substrings(ip_rule_commands, *argv);
+	if (!*argv)
+		return iprule_list(argv);
 
+	cmd = index_in_substrings(ip_rule_commands, *argv);
 	switch (cmd) {
 		case 0: /* add */
 			cmd = RTM_NEWRULE;
@@ -331,10 +326,10 @@ int do_iprule(int argc, char **argv)
 			break;
 		case 2: /* list */
 		case 3: /* show */
-			return iprule_list(argc-1, argv+1);
+			return iprule_list(argv+1);
 			break;
 		default:
 			bb_error_msg_and_die("unknown command %s", *argv);
 	}
-	return iprule_modify(cmd, argc-1, argv+1);
+	return iprule_modify(cmd, argv+1);
 }

@@ -1,1 +1,1 @@
-#undef CONFIG_ECHO
+#define CONFIG_ECHO 1

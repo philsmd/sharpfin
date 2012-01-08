@@ -1,1 +1,1 @@
-#undef CONFIG_SPLIT
+#define CONFIG_SPLIT 1

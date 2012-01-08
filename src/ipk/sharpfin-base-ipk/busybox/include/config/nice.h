@@ -1,1 +1,1 @@
-#undef CONFIG_NICE
+#define CONFIG_NICE 1

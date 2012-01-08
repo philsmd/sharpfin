@@ -68,12 +68,12 @@ enum {
 	WC_LENGTH	= 3
 };
 
-int wc_main(int argc, char **argv);
-int wc_main(int argc, char **argv)
+int wc_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int wc_main(int argc ATTRIBUTE_UNUSED, char **argv)
 {
 	FILE *fp;
 	const char *s, *arg;
-	const char *start_fmt = "%9"COUNT_FMT;
+	const char *start_fmt = " %9"COUNT_FMT + 1;
 	const char *fname_fmt = " %s\n";
 	COUNT_T *pcounts;
 	COUNT_T counts[4];
@@ -150,7 +150,7 @@ int wc_main(int argc, char **argv)
 				}
 			} else if (c == EOF) {
 				if (ferror(fp)) {
-					bb_perror_msg("%s", arg);
+					bb_simple_perror_msg(arg);
 					status = EXIT_FAILURE;
 				}
 				--counts[WC_CHARS];

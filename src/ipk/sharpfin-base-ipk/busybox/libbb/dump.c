@@ -59,7 +59,8 @@ int bb_dump_size(FS * fs)
 				prec = atoi(fmt);
 				while (isdigit(*++fmt));
 			}
-			if (!(p = strchr(size_conv_str + 12, *fmt))) {
+			p = strchr(size_conv_str + 12, *fmt);
+			if (!p) {
 				if (*fmt == 's') {
 					bcnt += prec;
 				} else if (*fmt == '_') {
@@ -94,12 +95,12 @@ static void rewrite(FS * fs)
 		 */
 		for (nconv = 0, fmtp = fu->fmt; *fmtp; nextpr = &pr->nextpr) {
 			/* NOSTRICT */
-			/* DBU:[dvae@cray.com] calloc so that forward ptrs start out NULL*/
+			/* DBU:[dvae@cray.com] zalloc so that forward ptrs start out NULL*/
 			pr = xzalloc(sizeof(PR));
 			if (!fu->nextpr)
 				fu->nextpr = pr;
 			/* ignore nextpr -- its unused inside the loop and is
-			 * uninitialized 1st time thru.
+			 * uninitialized 1st time through.
 			 */
 
 			/* bb_dump_skip preceding text and up to the next % sign */
@@ -162,7 +163,8 @@ static void rewrite(FS * fs)
 			DO_INT_CONV:
 				{
 					const char *e;
-					if (!(e = strchr(lcc, *p1))) {
+					e = strchr(lcc, *p1);
+					if (!e) {
 						goto DO_BAD_CONV_CHAR;
 					}
 					pr->flags = F_INT;
@@ -297,7 +299,7 @@ static void do_skip(const char *fname, int statok)
 
 	if (statok) {
 		if (fstat(STDIN_FILENO, &sbuf)) {
-			bb_perror_msg_and_die("%s", fname);
+			bb_simple_perror_msg_and_die(fname);
 		}
 		if ((!(S_ISCHR(sbuf.st_mode) ||
 			   S_ISBLK(sbuf.st_mode) ||
@@ -309,7 +311,7 @@ static void do_skip(const char *fname, int statok)
 		}
 	}
 	if (fseek(stdin, bb_dump_skip, SEEK_SET)) {
-		bb_perror_msg_and_die("%s", fname);
+		bb_simple_perror_msg_and_die(fname);
 	}
 	savaddress = address += bb_dump_skip;
 	bb_dump_skip = 0;
@@ -328,7 +330,7 @@ static int next(char **argv)
 	for (;;) {
 		if (*_argv) {
 			if (!(freopen(*_argv, "r", stdin))) {
-				bb_perror_msg("%s", *_argv);
+				bb_simple_perror_msg(*_argv);
 				exitval = 1;
 				++_argv;
 				continue;
@@ -393,7 +395,7 @@ static unsigned char *get(void)
 				  bb_dump_length == -1 ? need : MIN(bb_dump_length, need), stdin);
 		if (!n) {
 			if (ferror(stdin)) {
-				bb_perror_msg("%s", _argv[-1]);
+				bb_simple_perror_msg(_argv[-1]);
 			}
 			ateof = 1;
 			continue;
@@ -702,7 +704,7 @@ void bb_dump_add(const char *fmt)
 
 		/* allocate a new format unit and link it in */
 		/* NOSTRICT */
-		/* DBU:[dave@cray.com] calloc so that forward pointers start out NULL */
+		/* DBU:[dave@cray.com] zalloc so that forward pointers start out NULL */
 		tfu = xzalloc(sizeof(FU));
 		*nextfu = tfu;
 		nextfu = &tfu->nextfu;

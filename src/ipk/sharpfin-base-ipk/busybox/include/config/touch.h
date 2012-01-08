@@ -1,1 +1,1 @@
-#undef CONFIG_TOUCH
+#define CONFIG_TOUCH 1

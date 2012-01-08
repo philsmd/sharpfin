@@ -1,1 +1,1 @@
-#undef CONFIG_NC
+#define CONFIG_NC 1

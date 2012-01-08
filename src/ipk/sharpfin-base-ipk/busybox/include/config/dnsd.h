@@ -1,1 +1,1 @@
-#undef CONFIG_DNSD
+#define CONFIG_DNSD 1

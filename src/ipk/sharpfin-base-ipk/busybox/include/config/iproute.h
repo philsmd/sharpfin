@@ -1,1 +1,1 @@
-#undef CONFIG_IPROUTE
+#define CONFIG_IPROUTE 1

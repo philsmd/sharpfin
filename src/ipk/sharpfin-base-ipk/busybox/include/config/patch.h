@@ -1,1 +1,1 @@
-#undef CONFIG_PATCH
+#define CONFIG_PATCH 1

@@ -1,1 +1,1 @@
-#undef CONFIG_FOLD
+#define CONFIG_FOLD 1

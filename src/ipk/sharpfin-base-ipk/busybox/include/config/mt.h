@@ -1,1 +1,1 @@
-#undef CONFIG_MT
+#define CONFIG_MT 1

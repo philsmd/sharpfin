@@ -1,1 +1,1 @@
-#undef CONFIG_CHMOD
+#define CONFIG_CHMOD 1

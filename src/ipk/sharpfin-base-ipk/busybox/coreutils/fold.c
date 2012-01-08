@@ -5,25 +5,24 @@
    Copyright (C) 91, 1995-2002 Free Software Foundation, Inc.
 
    Modified for busybox based on coreutils v 5.0
-   Copyright (C) 2003 Glenn McGrath <bug1@iinet.net.au>
+   Copyright (C) 2003 Glenn McGrath
 
    Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
 */
 
 #include "libbb.h"
 
-static unsigned long flags;
-#define FLAG_COUNT_BYTES	1
-#define FLAG_BREAK_SPACES	2
-#define FLAG_WIDTH			4
+/* Must match getopt32 call */
+#define FLAG_COUNT_BYTES        1
+#define FLAG_BREAK_SPACES       2
+#define FLAG_WIDTH              4
 
 /* Assuming the current column is COLUMN, return the column that
    printing C will move the cursor to.
    The first column is 0. */
-
 static int adjust_column(int column, char c)
 {
-	if (!(flags & FLAG_COUNT_BYTES)) {
+	if (!(option_mask32 & FLAG_COUNT_BYTES)) {
 		if (c == '\b') {
 			if (column > 0)
 				column--;
@@ -38,7 +37,7 @@ static int adjust_column(int column, char c)
 	return column;
 }
 
-int fold_main(int argc, char **argv);
+int fold_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int fold_main(int argc, char **argv)
 {
 	char *line_out = NULL;
@@ -54,29 +53,27 @@ int fold_main(int argc, char **argv)
 			char const *a = argv[i];
 
 			if (*a++ == '-') {
-				if (*a == '-' && !a[1])
+				if (*a == '-' && !a[1]) /* "--" */
 					break;
-				if (isdigit(*a)) {
+				if (isdigit(*a))
 					argv[i] = xasprintf("-w%s", a);
-				}
 			}
 		}
 	}
 
-	flags = getopt32(argv, "bsw:", &w_opt);
-	if (flags & FLAG_WIDTH)
+	getopt32(argv, "bsw:", &w_opt);
+	if (option_mask32 & FLAG_WIDTH)
 		width = xatoul_range(w_opt, 1, 10000);
 
 	argv += optind;
-	if (!*argv) {
+	if (!*argv)
 		*--argv = (char*)"-";
-	}
 
 	do {
 		FILE *istream = fopen_or_warn_stdin(*argv);
 		int c;
 		int column = 0;		/* Screen column where next char will go. */
-		int offset_out = 0;	/* Index in `line_out' for next char. */
+		int offset_out = 0;	/* Index in 'line_out' for next char. */
 
 		if (istream == NULL) {
 			errs |= EXIT_FAILURE;
@@ -102,7 +99,7 @@ int fold_main(int argc, char **argv)
 				/* This character would make the line too long.
 				   Print the line plus a newline, and make this character
 				   start the next line. */
-				if (flags & FLAG_BREAK_SPACES) {
+				if (option_mask32 & FLAG_BREAK_SPACES) {
 					/* Look for the last blank. */
 					int logical_end;
 
@@ -115,7 +112,7 @@ int fold_main(int argc, char **argv)
 						/* Found a blank.  Don't output the part after it. */
 						logical_end++;
 						fwrite(line_out, sizeof(char), (size_t) logical_end, stdout);
-						putchar('\n');
+						bb_putchar('\n');
 						/* Move the remainder to the beginning of the next line.
 						   The areas being copied here might overlap. */
 						memmove(line_out, line_out + logical_end, offset_out - logical_end);
@@ -144,8 +141,8 @@ int fold_main(int argc, char **argv)
 			fwrite(line_out, sizeof(char), (size_t) offset_out, stdout);
 		}
 
-		if (ferror(istream) || fclose_if_not_stdin(istream)) {
-			bb_perror_msg("%s", *argv);	/* Avoid multibyte problems. */
+		if (fclose_if_not_stdin(istream)) {
+			bb_simple_perror_msg(*argv);	/* Avoid multibyte problems. */
 			errs |= EXIT_FAILURE;
 		}
 	} while (*++argv);

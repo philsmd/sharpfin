@@ -52,8 +52,11 @@
 # define ATTRIBUTE_NORETURN __attribute__ ((__noreturn__))
 # define ATTRIBUTE_PACKED __attribute__ ((__packed__))
 # define ATTRIBUTE_ALIGNED(m) __attribute__ ((__aligned__(m)))
-# if __GNUC_PREREQ (3,0)
+/* __NO_INLINE__: some gcc's do not honor inlining! :( */
+# if __GNUC_PREREQ (3,0) && !defined(__NO_INLINE__)
 #  define ALWAYS_INLINE __attribute__ ((always_inline)) inline
+/* I've seen a toolchain where I needed __noinline__ instead of noinline */
+#  define NOINLINE      __attribute__((__noinline__))
 #  if !ENABLE_WERROR
 #   define ATTRIBUTE_DEPRECATED __attribute__ ((__deprecated__))
 #   define ATTRIBUTE_UNUSED_RESULT __attribute__ ((warn_unused_result))
@@ -62,7 +65,8 @@
 #   define ATTRIBUTE_UNUSED_RESULT /* n/a */
 #  endif
 # else
-#  define ALWAYS_INLINE inline
+#  define ALWAYS_INLINE inline /* n/a */
+#  define NOINLINE /* n/a */
 #  define ATTRIBUTE_DEPRECATED /* n/a */
 #  define ATTRIBUTE_UNUSED_RESULT /* n/a */
 # endif
@@ -70,9 +74,10 @@
 /* -fwhole-program makes all symbols local. The attribute externally_visible
    forces a symbol global.  */
 # if __GNUC_PREREQ (4,1)
-#  define ATTRIBUTE_EXTERNALLY_VISIBLE __attribute__ ((__externally_visible__))
+#  define EXTERNALLY_VISIBLE __attribute__(( visibility("default") ));
+//__attribute__ ((__externally_visible__))
 # else
-#  define ATTRIBUTE_EXTERNALLY_VISIBLE
+#  define EXTERNALLY_VISIBLE
 # endif /* GNUC >= 4.1 */
 
 /* We use __extension__ in some places to suppress -pedantic warnings
@@ -133,29 +138,29 @@
 /* ---- Networking ------------------------------------------ */
 #ifndef __APPLE__
 # include <arpa/inet.h>
+# ifndef __socklen_t_defined
+typedef int socklen_t;
+# endif
 #else
 # include <netinet/in.h>
 #endif
 
-#ifndef __socklen_t_defined
-typedef int socklen_t;
-#endif
-
 /* ---- Compiler dependent settings ------------------------- */
-#if (defined __digital__ && defined __unix__)
+#if (defined __digital__ && defined __unix__) || defined __APPLE__
 # undef HAVE_MNTENT_H
+# undef HAVE_SYS_STATFS_H
 #else
 # define HAVE_MNTENT_H 1
+# define HAVE_SYS_STATFS_H 1
 #endif /* ___digital__ && __unix__ */
 
 /* linux/loop.h relies on __u64. Make sure we have that as a proper type
  * until userspace is widely fixed.  */
-#ifndef __GNUC__
-#if defined __INTEL_COMPILER
+#if (defined __INTEL_COMPILER && !defined __GNUC__) || \
+	(defined __GNUC__ && defined __STRICT_ANSI__)
 __extension__ typedef __signed__ long long __s64;
 __extension__ typedef unsigned long long __u64;
-#endif /* __INTEL_COMPILER */
-#endif /* ifndef __GNUC__ */
+#endif
 
 /*----- Kernel versioning ------------------------------------*/
 #define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
@@ -177,7 +182,7 @@ __extension__ typedef unsigned long long __u64;
 #define HAVE_FEATURES_H
 #include <stdint.h>
 #define HAVE_STDINT_H
-#else
+#elif !defined __APPLE__
 /* Largest integral types.  */
 #if __BIG_ENDIAN__
 typedef long                intmax_t;
@@ -224,11 +229,11 @@ typedef unsigned smalluint;
 /* uclibc does not implement daemon() for no-mmu systems.
  * For 0.9.29 and svn, __ARCH_USE_MMU__ indicates no-mmu reliably.
  * For earlier versions there is no reliable way to check if we are building
- * for a mmu-less system; the user should pass EXTRA_CFLAGS="-DBB_NOMMU"
- * on his own.
+ * for a mmu-less system.
  */
-#if defined __UCLIBC__ && __UCLIBC_MAJOR__ >= 0 && __UCLIBC_MINOR__ >= 9 && \
-    __UCLIBC_SUBLEVEL__ > 28 && !defined __ARCH_USE_MMU__
+#if ENABLE_NOMMU || \
+    (defined __UCLIBC__ && __UCLIBC_MAJOR__ >= 0 && __UCLIBC_MINOR__ >= 9 && \
+    __UCLIBC_SUBLEVEL__ > 28 && !defined __ARCH_USE_MMU__)
 #define BB_MMU 0
 #define BB_NOMMU 1
 #define USE_FOR_NOMMU(...) __VA_ARGS__
@@ -262,12 +267,6 @@ static ALWAYS_INLINE char* strchrnul(const char *s, char c)
 #if (defined __GLIBC__ && __GLIBC__ <= 2 && __GLIBC_MINOR__ < 1) || \
     defined __UC_LIBC__
 # define lchown chown
-#endif
-
-/* THIS SHOULD BE CLEANED OUT OF THE TREE ENTIRELY */
-/* FIXME: fix tar.c! */
-#ifndef FNM_LEADING_DIR
-#define FNM_LEADING_DIR 0
 #endif
 
 #if (defined __digital__ && defined __unix__)

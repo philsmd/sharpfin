@@ -1,1 +1,1 @@
-#undef CONFIG_DU
+#define CONFIG_DU 1

@@ -25,7 +25,7 @@ OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-/* Busyboxed by Denis Vlasenko <vda.linux@googlemail.com> */
+/* Busyboxed by Denys Vlasenko <vda.linux@googlemail.com> */
 /* Dependencies on runit_lib.c removed */
 
 #include "libbb.h"
@@ -39,21 +39,43 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define OPT_nostdout (option_mask32 & 0x10000)
 #define OPT_nostderr (option_mask32 & 0x20000)
 
-static char *set_user;
-static char *env_user;
-static const char *env_dir;
-static long limitd = -2;
-static long limits = -2;
-static long limitl = -2;
-static long limita = -2;
-static long limito = -2;
-static long limitp = -2;
-static long limitf = -2;
-static long limitc = -2;
-static long limitr = -2;
-static long limitt = -2;
-static int nicelvl;
-static const char *root;
+struct globals {
+	char *set_user;
+	char *env_user;
+	const char *env_dir;
+	const char *root;
+	long limitd; /* limitX are initialized to -2 */
+	long limits;
+	long limitl;
+	long limita;
+	long limito;
+	long limitp;
+	long limitf;
+	long limitc;
+	long limitr;
+	long limitt;
+	int nicelvl;
+};
+#define G (*(struct globals*)&bb_common_bufsiz1)
+#define set_user (G.set_user)
+#define env_user (G.env_user)
+#define env_dir  (G.env_dir )
+#define root     (G.root    )
+#define limitd   (G.limitd  )
+#define limits   (G.limits  )
+#define limitl   (G.limitl  )
+#define limita   (G.limita  )
+#define limito   (G.limito  )
+#define limitp   (G.limitp  )
+#define limitf   (G.limitf  )
+#define limitc   (G.limitc  )
+#define limitr   (G.limitr  )
+#define limitt   (G.limitt  )
+#define nicelvl  (G.nicelvl )
+#define INIT_G() do { \
+	long *p = &limitd; \
+	do *p++ = -2; while (p <= &limitt); \
+} while (0)
 
 static void suidgid(char *user)
 {
@@ -100,7 +122,8 @@ static void edir(const char *directory_name)
 						directory_name);
 			break;
 		}
-		if (d->d_name[0] == '.') continue;
+		if (d->d_name[0] == '.')
+			continue;
 		fd = open(d->d_name, O_RDONLY | O_NDELAY);
 		if (fd < 0) {
 			if ((errno == EISDIR) && env_dir) {
@@ -129,9 +152,9 @@ static void edir(const char *directory_name)
 			tail = memchr(buf, '\n', sizeof(buf));
 			/* skip trailing whitespace */;
 			while (1) {
-				if (tail[0]==' ') tail[0] = '\0';
-				if (tail[0]=='\t') tail[0] = '\0';
-				if (tail[0]=='\n') tail[0] = '\0';
+				if (tail[0] == ' ') tail[0] = '\0';
+				if (tail[0] == '\t') tail[0] = '\0';
+				if (tail[0] == '\n') tail[0] = '\0';
 				if (tail == buf) break;
 				tail--;
 			}
@@ -139,7 +162,8 @@ static void edir(const char *directory_name)
 		}
 	}
 	closedir(dir);
-	if (fchdir(wdir) == -1) bb_perror_msg_and_die("fchdir");
+	if (fchdir(wdir) == -1)
+		bb_perror_msg_and_die("fchdir");
 	close(wdir);
 }
 
@@ -147,12 +171,14 @@ static void limit(int what, long l)
 {
 	struct rlimit r;
 
-	if (getrlimit(what, &r) == -1) bb_perror_msg_and_die("getrlimit");
+	/* Never fails under Linux (except if you pass it bad arguments) */
+	getrlimit(what, &r);
 	if ((l < 0) || (l > r.rlim_max))
 		r.rlim_cur = r.rlim_max;
 	else
 		r.rlim_cur = l;
-	if (setrlimit(what, &r) == -1) bb_perror_msg_and_die("setrlimit");
+	if (setrlimit(what, &r) == -1)
+		bb_perror_msg_and_die("setrlimit");
 }
 
 static void slimit(void)
@@ -161,24 +187,27 @@ static void slimit(void)
 #ifdef RLIMIT_DATA
 		limit(RLIMIT_DATA, limitd);
 #else
-		if (OPT_verbose) bb_error_msg("system does not support %s",
-				"RLIMIT_DATA");
+		if (OPT_verbose)
+			bb_error_msg("system does not support RLIMIT_%s",
+				"DATA");
 #endif
 	}
 	if (limits >= -1) {
 #ifdef RLIMIT_STACK
 		limit(RLIMIT_STACK, limits);
 #else
-		if (OPT_verbose) bb_error_msg("system does not support %s",
-				"RLIMIT_STACK");
+		if (OPT_verbose)
+			bb_error_msg("system does not support RLIMIT_%s",
+				"STACK");
 #endif
 	}
 	if (limitl >= -1) {
 #ifdef RLIMIT_MEMLOCK
 		limit(RLIMIT_MEMLOCK, limitl);
 #else
-		if (OPT_verbose) bb_error_msg("system does not support %s",
-				"RLIMIT_MEMLOCK");
+		if (OPT_verbose)
+			bb_error_msg("system does not support RLIMIT_%s",
+				"MEMLOCK");
 #endif
 	}
 	if (limita >= -1) {
@@ -189,8 +218,8 @@ static void slimit(void)
 		limit(RLIMIT_AS, limita);
 #else
 		if (OPT_verbose)
-			bb_error_msg("system does not support %s",
-				"RLIMIT_VMEM");
+			bb_error_msg("system does not support RLIMIT_%s",
+				"VMEM");
 #endif
 #endif
 	}
@@ -202,8 +231,8 @@ static void slimit(void)
 		limit(RLIMIT_OFILE, limito);
 #else
 		if (OPT_verbose)
-			bb_error_msg("system does not support %s",
-				"RLIMIT_NOFILE");
+			bb_error_msg("system does not support RLIMIT_%s",
+				"NOFILE");
 #endif
 #endif
 	}
@@ -211,53 +240,60 @@ static void slimit(void)
 #ifdef RLIMIT_NPROC
 		limit(RLIMIT_NPROC, limitp);
 #else
-		if (OPT_verbose) bb_error_msg("system does not support %s",
-				"RLIMIT_NPROC");
+		if (OPT_verbose)
+			bb_error_msg("system does not support RLIMIT_%s",
+				"NPROC");
 #endif
 	}
 	if (limitf >= -1) {
 #ifdef RLIMIT_FSIZE
 		limit(RLIMIT_FSIZE, limitf);
 #else
-		if (OPT_verbose) bb_error_msg("system does not support %s",
-				"RLIMIT_FSIZE");
+		if (OPT_verbose)
+			bb_error_msg("system does not support RLIMIT_%s",
+				"FSIZE");
 #endif
 	}
 	if (limitc >= -1) {
 #ifdef RLIMIT_CORE
 		limit(RLIMIT_CORE, limitc);
 #else
-		if (OPT_verbose) bb_error_msg("system does not support %s",
-				"RLIMIT_CORE");
+		if (OPT_verbose)
+			bb_error_msg("system does not support RLIMIT_%s",
+				"CORE");
 #endif
 	}
 	if (limitr >= -1) {
 #ifdef RLIMIT_RSS
 		limit(RLIMIT_RSS, limitr);
 #else
-		if (OPT_verbose) bb_error_msg("system does not support %s",
-				"RLIMIT_RSS");
+		if (OPT_verbose)
+			bb_error_msg("system does not support RLIMIT_%s",
+				"RSS");
 #endif
 	}
 	if (limitt >= -1) {
 #ifdef RLIMIT_CPU
 		limit(RLIMIT_CPU, limitt);
 #else
-		if (OPT_verbose) bb_error_msg("system does not support %s",
-				"RLIMIT_CPU");
+		if (OPT_verbose)
+			bb_error_msg("system does not support RLIMIT_%s",
+				"CPU");
 #endif
 	}
 }
 
 /* argv[0] */
-static void setuidgid(int, char **);
-static void envuidgid(int, char **);
-static void envdir(int, char **);
-static void softlimit(int, char **);
+static void setuidgid(int, char **) ATTRIBUTE_NORETURN;
+static void envuidgid(int, char **) ATTRIBUTE_NORETURN;
+static void envdir(int, char **) ATTRIBUTE_NORETURN;
+static void softlimit(int, char **) ATTRIBUTE_NORETURN;
 
-int chpst_main(int argc, char **argv);
-int chpst_main(int argc, char **argv)
+int chpst_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int chpst_main(int argc ATTRIBUTE_UNUSED, char **argv)
 {
+	INIT_G();
+
 	if (applet_name[3] == 'd') envdir(argc, argv);
 	if (applet_name[1] == 'o') softlimit(argc, argv);
 	if (applet_name[0] == 's') setuidgid(argc, argv);
@@ -296,8 +332,7 @@ int chpst_main(int argc, char **argv)
 	if (env_dir) edir(env_dir);
 	if (root) {
 		xchdir(root);
-		if (chroot(".") == -1)
-			bb_perror_msg_and_die("chroot");
+		xchroot(".");
 	}
 	slimit();
 	if (nicelvl) {
@@ -314,7 +349,7 @@ int chpst_main(int argc, char **argv)
 	bb_perror_msg_and_die("exec %s", argv[0]);
 }
 
-static void setuidgid(int argc, char **argv)
+static void setuidgid(int argc ATTRIBUTE_UNUSED, char **argv)
 {
 	const char *account;
 
@@ -326,7 +361,7 @@ static void setuidgid(int argc, char **argv)
 	bb_perror_msg_and_die("exec %s", argv[0]);
 }
 
-static void envuidgid(int argc, char **argv)
+static void envuidgid(int argc ATTRIBUTE_UNUSED, char **argv)
 {
 	const char *account;
 
@@ -338,7 +373,7 @@ static void envuidgid(int argc, char **argv)
 	bb_perror_msg_and_die("exec %s", argv[0]);
 }
 
-static void envdir(int argc, char **argv)
+static void envdir(int argc ATTRIBUTE_UNUSED, char **argv)
 {
 	const char *dir;
 
@@ -350,7 +385,7 @@ static void envdir(int argc, char **argv)
 	bb_perror_msg_and_die("exec %s", argv[0]);
 }
 
-static void softlimit(int argc, char **argv)
+static void softlimit(int argc ATTRIBUTE_UNUSED, char **argv)
 {
 	char *a,*c,*d,*f,*l,*m,*o,*p,*r,*s,*t;
 	getopt32(argv, "+a:c:d:f:l:m:o:p:r:s:t:",

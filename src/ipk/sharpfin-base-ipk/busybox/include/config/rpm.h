@@ -1,1 +1,1 @@
-#undef CONFIG_RPM
+#define CONFIG_RPM 1

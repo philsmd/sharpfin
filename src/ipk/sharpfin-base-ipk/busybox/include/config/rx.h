@@ -1,1 +1,1 @@
-#undef CONFIG_RX
+#define CONFIG_RX 1

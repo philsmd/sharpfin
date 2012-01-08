@@ -21,7 +21,7 @@ static int swap_enable_disable(char *device)
 #if ENABLE_DESKTOP
 	/* test for holes */
 	if (S_ISREG(st.st_mode))
-		if (st.st_blocks * 512 < st.st_size)
+		if (st.st_blocks * (off_t)512 < st.st_size)
 			bb_error_msg("warning: swap file has holes");
 #endif
 
@@ -31,7 +31,7 @@ static int swap_enable_disable(char *device)
 		status = swapoff(device);
 
 	if (status != 0) {
-		bb_perror_msg("%s", device);
+		bb_simple_perror_msg(device);
 		return 1;
 	}
 
@@ -58,12 +58,12 @@ static int do_em_all(void)
 	return err;
 }
 
-int swap_on_off_main(int argc, char **argv);
-int swap_on_off_main(int argc, char **argv)
+int swap_on_off_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int swap_on_off_main(int argc ATTRIBUTE_UNUSED, char **argv)
 {
 	int ret;
 
-	if (argc == 1)
+	if (!argv[1])
 		bb_show_usage();
 
 	ret = getopt32(argv, "a");

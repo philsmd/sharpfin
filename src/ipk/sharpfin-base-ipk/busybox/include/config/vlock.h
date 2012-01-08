@@ -1,1 +1,1 @@
-#undef CONFIG_VLOCK
+#define CONFIG_VLOCK 1

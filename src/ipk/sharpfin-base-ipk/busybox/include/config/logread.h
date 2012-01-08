@@ -1,1 +1,1 @@
-#undef CONFIG_LOGREAD
+#define CONFIG_LOGREAD 1

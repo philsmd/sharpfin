@@ -1,1 +1,1 @@
-#undef CONFIG_MDEV
+#define CONFIG_MDEV 1

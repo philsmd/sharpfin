@@ -53,17 +53,12 @@
     The postal address is:
       Richard Gooch, c/o ATNF, P. O. Box 76, Epping, N.S.W., 2121, Australia.
 */
-
-//#include <sys/wait.h>
-//#include <sys/ioctl.h>
-//#include <sys/socket.h>
-#include <sys/un.h>
-#include <dirent.h>
-#include <syslog.h>
-#include <sys/sysmacros.h>
 #include "libbb.h"
 #include "xregex.h"
+#include <syslog.h>
 
+#include <sys/un.h>
+#include <sys/sysmacros.h>
 
 /* Various defines taken from linux/major.h */
 #define IDE0_MAJOR	3
@@ -336,7 +331,7 @@ static unsigned int scan_dev_name(const char *d, unsigned int n, const char *ptr
 
 /*  Public functions follow  */
 
-int devfsd_main(int argc, char **argv);
+int devfsd_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int devfsd_main(int argc, char **argv)
 {
 	int print_version = FALSE;
@@ -371,10 +366,7 @@ int devfsd_main(int argc, char **argv)
 	xchdir(mount_point);
 
 	fd = xopen(".devfsd", O_RDONLY);
-
-	if (fcntl(fd, F_SETFD, FD_CLOEXEC) != 0)
-		bb_perror_msg_and_die("FD_CLOEXEC");
-
+	close_on_exec_on(fd);
 	xioctl(fd, DEVFSDIOC_GET_PROTO_REV, &proto_rev);
 
 	/*setup initial entries */
@@ -394,15 +386,14 @@ int devfsd_main(int argc, char **argv)
 	/*  Tell kernel we are special(i.e. we get to see hidden entries)  */
 	xioctl(fd, DEVFSDIOC_SET_EVENT_MASK, 0);
 
+	/*  Set up SIGHUP and SIGUSR1 handlers  */
 	sigemptyset(&new_action.sa_mask);
 	new_action.sa_flags = 0;
-
-	/*  Set up SIGHUP and SIGUSR1 handlers  */
 	new_action.sa_handler = signal_handler;
-	if (sigaction(SIGHUP, &new_action, NULL) != 0 || sigaction(SIGUSR1, &new_action, NULL) != 0)
-		bb_error_msg_and_die("sigaction");
+	sigaction_set(SIGHUP, &new_action);
+	sigaction_set(SIGUSR1, &new_action);
 
-	printf("%s v%s  started for %s\n",applet_name, DEVFSD_VERSION, mount_point);
+	printf("%s v%s started for %s\n", applet_name, DEVFSD_VERSION, mount_point);
 
 	/*  Set umask so that mknod(2), open(2) and mkdir(2) have complete control over permissions  */
 	umask(0);
@@ -468,7 +459,8 @@ static void read_config_file(char *path, int optional, unsigned long *event_mask
 			free(p);
 			return;
 		}
-		if ((fp = fopen(path, "r")) != NULL) {
+		fp = fopen(path, "r");
+		if (fp != NULL) {
 			while (fgets(buf, STRING_LENGTH, fp) != NULL) {
 				/*  Skip whitespace  */
 				line = buf;
@@ -563,7 +555,8 @@ static void process_config_line(const char *line, unsigned long *event_mask)
 		case 4:	/* "PERMISSIONS" */
 			new->action.what = AC_PERMISSIONS;
 			/*  Get user and group  */
-			if ((ptr = strchr(p[0], '.')) == NULL) {
+			ptr = strchr(p[0], '.');
+			if (ptr == NULL) {
 				msg = "UID.GID";
 				goto process_config_line_err; /*"missing '.' in UID.GID"*/
 			}
@@ -982,8 +975,9 @@ static int copy_inode(const char *destpath, const struct stat *dest_stat,
 	if ((source_stat->st_mode & S_IFMT) ==(dest_stat->st_mode & S_IFMT)) {
 		/*  Same type  */
 		if (S_ISLNK(source_stat->st_mode)) {
-			if ((source_len = readlink(sourcepath, source_link, STRING_LENGTH - 1)) < 0
-				|| (dest_len   = readlink(destpath  , dest_link  , STRING_LENGTH - 1)) < 0
+			source_len = readlink(sourcepath, source_link, STRING_LENGTH - 1);
+			if ((source_len < 0)
+			 || (dest_len = readlink(destpath, dest_link, STRING_LENGTH - 1)) < 0
 			)
 				return FALSE;
 			source_link[source_len]	= '\0';
@@ -1002,7 +996,8 @@ static int copy_inode(const char *destpath, const struct stat *dest_stat,
 	unlink(destpath);
 	switch (source_stat->st_mode & S_IFMT) {
 		case S_IFSOCK:
-			if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
+			fd = socket(AF_UNIX, SOCK_STREAM, 0);
+			if (fd < 0)
 				break;
 			un_addr.sun_family = AF_UNIX;
 			snprintf(un_addr.sun_path, sizeof(un_addr.sun_path), "%s", destpath);
@@ -1012,14 +1007,16 @@ static int copy_inode(const char *destpath, const struct stat *dest_stat,
 				break;
 			goto do_chown;
 		case S_IFLNK:
-			if ((val = readlink(sourcepath, symlink_val, STRING_LENGTH - 1)) < 0)
+			val = readlink(sourcepath, symlink_val, STRING_LENGTH - 1);
+			if (val < 0)
 				break;
 			symlink_val[val] = '\0';
 			if (symlink(symlink_val, destpath) == 0)
 				return TRUE;
 			break;
 		case S_IFREG:
-			if ((fd = open(destpath, O_RDONLY | O_CREAT, new_mode & ~S_IFMT)) < 0)
+			fd = open(destpath, O_RDONLY | O_CREAT, new_mode & ~S_IFMT);
+			if (fd < 0)
 				break;
 			close(fd);
 			if (chmod(destpath, new_mode & ~S_IFMT) != 0)
@@ -1085,7 +1082,7 @@ static int get_uid_gid(int flag, const char *string)
 	if (isdigit(string[0]) ||((string[0] == '-') && isdigit(string[1])))
 		return atoi(string);
 
-	if (flag == UID && (pw_ent  = getpwnam(string)) != NULL)
+	if (flag == UID && (pw_ent = getpwnam(string)) != NULL)
 		return pw_ent->pw_uid;
 
 	if (flag == GID && (grp_ent = getgrnam(string)) != NULL)
@@ -1135,8 +1132,8 @@ static void signal_handler(int sig)
 static const char *get_variable(const char *variable, void *info)
 {
 	static char sbuf[sizeof(int)*3 + 2]; /* sign and NUL */
+	static char *hostname;
 
-	char hostname[STRING_LENGTH];
 	struct get_variable_info *gv_info = info;
 	const char *field_names[] = {
 			"hostname", "mntpt", "devpath", "devname",
@@ -1145,12 +1142,8 @@ static const char *get_variable(const char *variable, void *info)
 	};
 	int i;
 
-	if (gethostname(hostname, STRING_LENGTH - 1) != 0)
-		/* Here on error we should do exit(RV_SYS_ERROR), instead we do exit(EXIT_FAILURE) */
-		error_logger_and_die(LOG_ERR, "gethostname");
-
-	hostname[STRING_LENGTH - 1] = '\0';
-
+	if (!hostname)
+		hostname = safe_gethostname();
 	/* index_in_str_array returns i>=0  */
 	i = index_in_str_array(field_names, variable);
 
@@ -1200,7 +1193,8 @@ static void dir_operation(int type, const char * dir_name, int var, unsigned lon
 	struct dirent *de;
 	char *path;
 
-	if ((dp = warn_opendir(dir_name)) == NULL)
+	dp = warn_opendir(dir_name);
+	if (dp == NULL)
 		return;
 
 	while ((de = readdir(dp)) != NULL) {
@@ -1584,7 +1578,8 @@ int st_expr_expand(char *output, unsigned int length, const char *input,
 				ch = input[1];
 				if (isspace(ch) ||(ch == '/') ||(ch == '\0')) {
 					/* User's own home directory: leave separator for next time */
-					if ((env = getenv("HOME")) == NULL) {
+					env = getenv("HOME");
+					if (env == NULL) {
 						info_logger(LOG_INFO, bb_msg_variable_not_found, "HOME");
 						return FALSE;
 					}
@@ -1603,7 +1598,8 @@ int st_expr_expand(char *output, unsigned int length, const char *input,
 					goto st_expr_expand_out;
 				safe_memcpy(tmp, input, len);
 				input = ptr - 1;
-				if ((pwent = getpwnam(tmp)) == NULL) {
+				pwent = getpwnam(tmp);
+				if (pwent == NULL) {
 					info_logger(LOG_INFO, "no pwent for: %s", tmp);
 					return FALSE;
 				}
@@ -1683,7 +1679,8 @@ static const char *expand_variable(char *buffer, unsigned int length,
 
 		safe_memcpy(tmp, input, len);
 		input = ptr - 1;
-		if ((env = get_variable_v2(tmp, func, info)) == NULL) {
+		env = get_variable_v2(tmp, func, info);
+		if (env == NULL) {
 			info_logger(LOG_INFO, bb_msg_variable_not_found, tmp);
 			return NULL;
 		}
@@ -1743,7 +1740,8 @@ static const char *expand_variable(char *buffer, unsigned int length,
 	}
 	--ptr;
 	/*  At this point ptr should point to closing brace of "${var:-word}"  */
-	if ((env = get_variable_v2(tmp, func, info)) != NULL) {
+	env = get_variable_v2(tmp, func, info);
+	if (env != NULL) {
 		/*  Found environment variable, so skip the input to the closing brace
 			and return the variable  */
 		input = ptr;

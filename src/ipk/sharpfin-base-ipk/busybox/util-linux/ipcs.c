@@ -68,7 +68,7 @@ struct shm_info {
 union semun {
 	int val;
 	struct semid_ds *buf;
-	unsigned short int *array;
+	unsigned short *array;
 	struct seminfo *__buf;
 };
 #endif
@@ -99,23 +99,19 @@ static void print_perms(int id, struct ipc_perm *ipcp)
 
 	printf("%-10d %-10o", id, ipcp->mode & 0777);
 
-	if ((pw = getpwuid(ipcp->cuid)))
-		printf(" %-10s", pw->pw_name);
-	else
-		printf(" %-10d", ipcp->cuid);
-	if ((gr = getgrgid(ipcp->cgid)))
-		printf(" %-10s", gr->gr_name);
-	else
-		printf(" %-10d", ipcp->cgid);
+	pw = getpwuid(ipcp->cuid);
+	if (pw)	printf(" %-10s", pw->pw_name);
+	else	printf(" %-10d", ipcp->cuid);
+	gr = getgrgid(ipcp->cgid);
+	if (gr)	printf(" %-10s", gr->gr_name);
+	else	printf(" %-10d", ipcp->cgid);
 
-	if ((pw = getpwuid(ipcp->uid)))
-		printf(" %-10s", pw->pw_name);
-	else
-		printf(" %-10d", ipcp->uid);
-	if ((gr = getgrgid(ipcp->gid)))
-		printf(" %-10s\n", gr->gr_name);
-	else
-		printf(" %-10d\n", ipcp->gid);
+	pw = getpwuid(ipcp->uid);
+	if (pw)	printf(" %-10s", pw->pw_name);
+	else	printf(" %-10d", ipcp->uid);
+	gr = getgrgid(ipcp->gid);
+	if (gr)	printf(" %-10s\n", gr->gr_name);
+	else	printf(" %-10d\n", ipcp->gid);
 }
 
 
@@ -559,11 +555,11 @@ static void print_sem(int semid)
 		}
 		printf("%-10d %-10d %-10d %-10d %-10d\n", i, val, ncnt, zcnt, pid);
 	}
-	puts("");
+	bb_putchar('\n');
 }
 
-int ipcs_main(int argc, char **argv);
-int ipcs_main(int argc, char **argv)
+int ipcs_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int ipcs_main(int argc ATTRIBUTE_UNUSED, char **argv)
 {
 	int id = 0;
 	unsigned flags = 0;
@@ -607,19 +603,19 @@ int ipcs_main(int argc, char **argv)
 
 	if (!(flags & (flag_shm | flag_msg | flag_sem)))
 		flags |= flag_msg | flag_shm | flag_sem;
-	puts("");
+	bb_putchar('\n');
 
 	if (flags & flag_shm) {
 		do_shm();
-		puts("");
+		bb_putchar('\n');
 	}
 	if (flags & flag_sem) {
 		do_sem();
-		puts("");
+		bb_putchar('\n');
 	}
 	if (flags & flag_msg) {
 		do_msg();
-		puts("");
+		bb_putchar('\n');
 	}
 	fflush_stdout_and_exit(0);
 }

@@ -1,1 +1,1 @@
-#undef CONFIG_HOSTNAME
+#define CONFIG_HOSTNAME 1

@@ -1,1 +1,1 @@
-#undef CONFIG_ADDUSER
+#define CONFIG_ADDUSER 1

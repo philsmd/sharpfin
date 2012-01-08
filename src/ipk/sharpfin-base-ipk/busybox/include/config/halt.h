@@ -1,1 +1,1 @@
-#undef CONFIG_HALT
+#define CONFIG_HALT 1

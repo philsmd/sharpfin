@@ -4,9 +4,9 @@
  */
 
 #include "libbb.h"
+#include <syslog.h>
 #include <utmp.h>
 #include <sys/resource.h>
-#include <syslog.h>
 
 #if ENABLE_SELINUX
 #include <selinux/selinux.h>  /* for is_selinux_enabled()  */
@@ -114,7 +114,7 @@ static void write_utent(struct utmp *utptr, const char *username)
 #endif /* !ENABLE_FEATURE_UTMP */
 
 #if ENABLE_FEATURE_NOLOGIN
-static void die_if_nologin_and_non_root(int amroot)
+static void die_if_nologin(void)
 {
 	FILE *fp;
 	int c;
@@ -125,17 +125,15 @@ static void die_if_nologin_and_non_root(int amroot)
 	fp = fopen("/etc/nologin", "r");
 	if (fp) {
 		while ((c = getc(fp)) != EOF)
-			putchar((c=='\n') ? '\r' : c);
+			bb_putchar((c=='\n') ? '\r' : c);
 		fflush(stdout);
 		fclose(fp);
 	} else
 		puts("\r\nSystem closed for routine maintenance\r");
-	if (!amroot)
-		exit(1);
-	puts("\r\n[Disconnect bypassed -- root login allowed]\r");
+	exit(1);
 }
 #else
-static ALWAYS_INLINE void die_if_nologin_and_non_root(int amroot) {}
+static ALWAYS_INLINE void die_if_nologin(void) {}
 #endif
 
 #if ENABLE_FEATURE_SECURETTY && !ENABLE_PAM
@@ -201,7 +199,7 @@ static void motd(void)
 	int fd;
 
 	fd = open(bb_path_motd_file, O_RDONLY);
-	if (fd) {
+	if (fd >= 0) {
 		fflush(stdout);
 		bb_copyfd_eof(fd, STDOUT_FILENO);
 		close(fd);
@@ -214,13 +212,16 @@ static void alarm_handler(int sig ATTRIBUTE_UNUSED)
 	 * arrive here when their connection is broken.
 	 * We don't want to block here */
 	ndelay_on(1);
-	ndelay_on(2);
 	printf("\r\nLogin timed out after %d seconds\r\n", TIMEOUT);
-	exit(EXIT_SUCCESS);
+	fflush(stdout);
+	/* unix API is brain damaged regarding O_NONBLOCK,
+	 * we should undo it, or else we can affect other processes */
+	ndelay_off(1);
+	_exit(EXIT_SUCCESS);
 }
 
-int login_main(int argc, char **argv);
-int login_main(int argc, char **argv)
+int login_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int login_main(int argc ATTRIBUTE_UNUSED, char **argv)
 {
 	enum {
 		LOGIN_OPT_f = (1<<0),
@@ -234,20 +235,27 @@ int login_main(int argc, char **argv)
 	unsigned opt;
 	int count = 0;
 	struct passwd *pw;
-	char *opt_host = NULL;
-	char *opt_user = NULL;
+	char *opt_host = opt_host; /* for compiler */
+	char *opt_user = opt_user; /* for compiler */
 	char full_tty[TTYNAME_SIZE];
 	USE_SELINUX(security_context_t user_sid = NULL;)
 	USE_FEATURE_UTMP(struct utmp utent;)
-	USE_PAM(pam_handle_t *pamh;)
-	USE_PAM(int pamret;)
-	USE_PAM(const char *failed_msg;)
+#if ENABLE_PAM
+	int pamret;
+	pam_handle_t *pamh;
+	const char *pamuser;
+	const char *failed_msg;
+	struct passwd pwdstruct;
+	char pwdbuf[256];
+#endif
 
 	short_tty = full_tty;
 	username[0] = '\0';
-	amroot = (getuid() == 0);
 	signal(SIGALRM, alarm_handler);
 	alarm(TIMEOUT);
+
+	/* More of suid paranoia if called by non-root */
+	amroot = !sanitize_env_if_suid(); /* Clear dangerous stuff, set PATH */
 
 	/* Mandatory paranoia for suid applet:
 	 * ensure that fd# 0,1,2 are opened (at least to /dev/null)
@@ -261,8 +269,9 @@ int login_main(int argc, char **argv)
 			bb_error_msg_and_die("-f is for root only");
 		safe_strncpy(username, opt_user, sizeof(username));
 	}
-	if (optind < argc) /* user from command line (getty) */
-		safe_strncpy(username, argv[optind], sizeof(username));
+	argv += optind;
+	if (argv[0]) /* user from command line (getty) */
+		safe_strncpy(username, argv[0], sizeof(username));
 
 	/* Let's find out and memorize our tty */
 	if (!isatty(0) || !isatty(1) || !isatty(2))
@@ -277,7 +286,7 @@ int login_main(int argc, char **argv)
 
 	read_or_build_utent(&utent, !amroot);
 
-	if (opt_host) {
+	if (opt & LOGIN_OPT_h) {
 		USE_FEATURE_UTMP(
 			safe_strncpy(utent.ut_host, opt_host, sizeof(utent.ut_host));
 		)
@@ -291,24 +300,27 @@ int login_main(int argc, char **argv)
 	openlog(applet_name, LOG_PID | LOG_CONS | LOG_NOWAIT, LOG_AUTH);
 
 	while (1) {
+		/* flush away any type-ahead (as getty does) */
+		ioctl(0, TCFLSH, TCIFLUSH);
+
 		if (!username[0])
 			get_username_or_die(username, sizeof(username));
 
 #if ENABLE_PAM
 		pamret = pam_start("login", username, &conv, &pamh);
 		if (pamret != PAM_SUCCESS) {
-			failed_msg = "pam_start";
+			failed_msg = "start";
 			goto pam_auth_failed;
 		}
 		/* set TTY (so things like securetty work) */
 		pamret = pam_set_item(pamh, PAM_TTY, short_tty);
 		if (pamret != PAM_SUCCESS) {
-			failed_msg = "pam_set_item(TTY)";
+			failed_msg = "set_item(TTY)";
 			goto pam_auth_failed;
 		}
 		pamret = pam_authenticate(pamh, 0);
 		if (pamret != PAM_SUCCESS) {
-			failed_msg = "pam_authenticate";
+			failed_msg = "authenticate";
 			goto pam_auth_failed;
 			/* TODO: or just "goto auth_failed"
 			 * since user seems to enter wrong password
@@ -318,28 +330,42 @@ int login_main(int argc, char **argv)
 		/* check that the account is healthy */
 		pamret = pam_acct_mgmt(pamh, 0);
 		if (pamret != PAM_SUCCESS) {
-			failed_msg = "account setup";
+			failed_msg = "acct_mgmt";
 			goto pam_auth_failed;
 		}
 		/* read user back */
-		{
-			const char *pamuser;
-			/* gcc: "dereferencing type-punned pointer breaks aliasing rules..."
-			 * thus we cast to (void*) */
-			if (pam_get_item(pamh, PAM_USER, (void*)&pamuser) != PAM_SUCCESS) {
-				failed_msg = "pam_get_item(USER)";
-				goto pam_auth_failed;
-			}
-			safe_strncpy(username, pamuser, sizeof(username));
+		pamuser = NULL;
+		/* gcc: "dereferencing type-punned pointer breaks aliasing rules..."
+		 * thus we cast to (void*) */
+		if (pam_get_item(pamh, PAM_USER, (void*)&pamuser) != PAM_SUCCESS) {
+			failed_msg = "get_item(USER)";
+			goto pam_auth_failed;
 		}
-		/* If we get here, the user was authenticated, and is
-		 * granted access. */
-		pw = getpwnam(username);
-		if (pw)
-			break;
-		goto auth_failed;
+		if (!pamuser || !pamuser[0])
+			goto auth_failed;
+		safe_strncpy(username, pamuser, sizeof(username));
+		/* Don't use "pw = getpwnam(username);",
+		 * PAM is said to be capable of destroying static storage
+		 * used by getpwnam(). We are using safe(r) function */
+		pw = NULL;
+		getpwnam_r(username, &pwdstruct, pwdbuf, sizeof(pwdbuf), &pw);
+		if (!pw)
+			goto auth_failed;
+		pamret = pam_open_session(pamh, 0);
+		if (pamret != PAM_SUCCESS) {
+			failed_msg = "open_session";
+			goto pam_auth_failed;
+		}
+		pamret = pam_setcred(pamh, PAM_ESTABLISH_CRED);
+		if (pamret != PAM_SUCCESS) {
+			failed_msg = "setcred";
+			goto pam_auth_failed;
+		}
+		break; /* success, continue login process */
+
  pam_auth_failed:
-		bb_error_msg("%s failed: %s (%d)", failed_msg, pam_strerror(pamh, pamret), pamret);
+		bb_error_msg("pam_%s call failed: %s (%d)", failed_msg,
+					pam_strerror(pamh, pamret), pamret);
 		safe_strncpy(username, "UNKNOWN", sizeof(username));
 #else /* not PAM */
 		pw = getpwnam(username);
@@ -379,7 +405,8 @@ int login_main(int argc, char **argv)
 	}
 
 	alarm(0);
-	die_if_nologin_and_non_root(pw->pw_uid == 0);
+	if (!amroot)
+		die_if_nologin();
 
 	write_utent(&utent, username);
 
@@ -411,7 +438,8 @@ int login_main(int argc, char **argv)
 	fchown(0, pw->pw_uid, pw->pw_gid);
 	fchmod(0, 0600);
 
-	if (ENABLE_LOGIN_SCRIPTS) {
+	/* We trust environment only if we run by root */
+	if (ENABLE_LOGIN_SCRIPTS && amroot) {
 		char *t_argv[2];
 
 		t_argv[0] = getenv("LOGIN_PRE_SUID_SCRIPT");
@@ -422,9 +450,12 @@ int login_main(int argc, char **argv)
 			xsetenv("LOGIN_UID", utoa(pw->pw_uid));
 			xsetenv("LOGIN_GID", utoa(pw->pw_gid));
 			xsetenv("LOGIN_SHELL", pw->pw_shell);
-			xspawn(t_argv); /* NOMMU-friendly */
-			/* All variables are unset by setup_environment */
-			wait(NULL);
+			spawn_and_wait(t_argv); /* NOMMU-friendly */
+			unsetenv("LOGIN_TTY"  );
+			unsetenv("LOGIN_USER" );
+			unsetenv("LOGIN_UID"  );
+			unsetenv("LOGIN_GID"  );
+			unsetenv("LOGIN_SHELL");
 		}
 	}
 
@@ -432,9 +463,8 @@ int login_main(int argc, char **argv)
 	tmp = pw->pw_shell;
 	if (!tmp || !*tmp)
 		tmp = DEFAULT_SHELL;
-	/* setup_environment params: shell, loginshell, changeenv, pw */
-	setup_environment(tmp, 1, !(opt & LOGIN_OPT_p), pw);
-	/* FIXME: login shell = 1 -> 3rd parameter is ignored! */
+	/* setup_environment params: shell, clear_env, change_env, pw */
+	setup_environment(tmp, !(opt & LOGIN_OPT_p), 1, pw);
 
 	motd();
 
@@ -469,5 +499,4 @@ int login_main(int argc, char **argv)
 	run_shell(tmp, 1, NULL, NULL);
 
 	/* return EXIT_FAILURE; - not reached */
-    return EXIT_FAILURE;
 }

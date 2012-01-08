@@ -1,1 +1,1 @@
-#undef CONFIG_CHPST
+#define CONFIG_CHPST 1

@@ -80,7 +80,7 @@ static void fileaction_dobackup(char *filename, int fileref);
 static void fileaction_setowngrp(char *filename, int fileref);
 static void loop_through_files(int filetag, void (*fileaction)(char *filename, int fileref));
 
-int rpm_main(int argc, char **argv);
+int rpm_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int rpm_main(int argc, char **argv)
 {
 	int opt = 0, func = 0, rpm_fd, offset;
@@ -229,7 +229,6 @@ static void extract_cpio_gz(int fd)
 				USE_FEATURE_RPM_BZ2("/bzip")
 				" magic");
 	} else {
-		check_header_gzip_or_die(archive_handle->src_fd);
 #if !BB_MMU
 		/* NOMMU version of open_transformer execs an external unzipper that should
 		 * have the file position at the start of the file */
@@ -238,7 +237,7 @@ static void extract_cpio_gz(int fd)
 	}
 
 	xchdir("/"); /* Install RPM's to root */
-	archive_handle->src_fd = open_transformer(archive_handle->src_fd, xformer, xformer_prog, xformer_prog, "-cf", "-", NULL);
+	archive_handle->src_fd = open_transformer(archive_handle->src_fd, xformer, xformer_prog);
 	archive_handle->offset = 0;
 	while (get_header_cpio(archive_handle) == EXIT_SUCCESS)
 		continue;

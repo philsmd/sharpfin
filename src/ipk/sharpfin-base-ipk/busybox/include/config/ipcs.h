@@ -1,1 +1,1 @@
-#undef CONFIG_IPCS
+#define CONFIG_IPCS 1

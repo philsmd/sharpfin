@@ -4,7 +4,7 @@
  * Rick Sladkey <jrs@world.std.com>
  * In the public domain.
  *
- * 1999-02-22 Arkadiusz Mi¶kiewicz <misiek@pld.ORG.PL>
+ * 1999-02-22 Arkadiusz Mickiewicz <misiek@pld.ORG.PL>
  * - added Native Language Support
  *
  * 2001-01-18 John Fremlin <vii@penguinpowered.com>
@@ -16,18 +16,20 @@
 
 #include "libbb.h"
 
-int setsid_main(int argc, char **argv);
-int setsid_main(int argc, char **argv)
+int setsid_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int setsid_main(int argc ATTRIBUTE_UNUSED, char **argv)
 {
-	if (argc < 2)
+	if (!argv[1])
 		bb_show_usage();
 
-	/* Comment why is this necessary? */
+	/* setsid() is allowed only when we are not a process group leader.
+	 * Otherwise our PID serves as PGID of some existing process group
+	 * and cannot be used as PGID of a new process group. */
 	if (getpgrp() == getpid())
 		forkexit_or_rexec(argv);
 
 	setsid();  /* no error possible */
 
 	BB_EXECVP(argv[1], argv + 1);
-	bb_perror_msg_and_die("%s", argv[1]);
+	bb_simple_perror_msg_and_die(argv[1]);
 }

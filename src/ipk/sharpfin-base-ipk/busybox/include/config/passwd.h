@@ -1,1 +1,1 @@
-#undef CONFIG_PASSWD
+#define CONFIG_PASSWD 1
