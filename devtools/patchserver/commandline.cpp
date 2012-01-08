@@ -66,7 +66,7 @@
  * The radio then re-boots, and the upgrade is complete.
  *
  **/
-
+ 
 #include "commandline.h"
 #include "terms.h"
 
@@ -87,8 +87,7 @@
 
 int mainloop(char *nameserver, char *tarfile) ;
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
 	int dnsserver_ps, webserver_ps, i ;
 	char reply[1024], nameserver[1024] ;
 	char tarfile[1024] ;
@@ -105,7 +104,6 @@ int main(int argc, char *argv[])
 	// first possible option is -accept override
 	sa=1 ;
 	if (argc>sa && strcmp(argv[sa], "-accept")==0) {
-		
 		sa++ ;
 		
 	} else {
@@ -116,6 +114,7 @@ int main(int argc, char *argv[])
 			"                  ***********************************\n"
 			"\n"
 			TERMS
+			" [yN] "
 			"\n") ;
 			
 		fgets(reply, 32, stdin) ;
@@ -188,8 +187,7 @@ int main(int argc, char *argv[])
  *
  */
  
-int mainloop(char *nameserver, char *tarfile)
-{
+int mainloop(char *nameserver, char *tarfile) {
 	int r ;
 	int maxfd ;
 	int weblistener ;
