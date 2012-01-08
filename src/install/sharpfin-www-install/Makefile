@@ -19,7 +19,7 @@
 # along with this source files. If not, see
 # <http://www.gnu.org/licenses/>.
 
-VER := 0.6
+VER := 0.9
 APP := www
 INS := sharpfin-$(APP)_$(VER).install
 IPK := sharpfin-$(APP)_$(VER)_arm.ipk
