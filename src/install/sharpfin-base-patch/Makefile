@@ -23,7 +23,7 @@ PATCHVER := 0.5-alpha20120101
 WWWVER := 0.9
 TDVER := 0.1
 HDVER := 0.1
-BSVER := 0.3-alpha20120101
+BSVER := 0.3-alpha20120108
 FDVER := 0.1
 
 WWWIPK := sharpfin-www_$(WWWVER)_arm.ipk
