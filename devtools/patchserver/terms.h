@@ -23,9 +23,10 @@
  */
 
 // Terms of Use
-#define TERMS	" patchserver version " VERSION "\n" \
+#define TERMS	" Sharpfin Patch-Server version " VERSION "\n" \
 	"\n" \
-	" This program comes with no warranty. Radio patchfiles come with no warranty.\n" \
+	"This program comes with no warranty and also all Sharpfin radio patch files come " \
+        "with NO WARRANTY.\n" \
 	"\n" \
 	"It is possible to trash your radio if you don't know what you are doing.  There\n" \
 	"are also no guarantees that the upgrade / patch process won't damage your radio\n" \
