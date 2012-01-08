@@ -27,7 +27,6 @@
 #ifdef WINDOWS
 #include <winsock.h>
 #else
-#include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/tcp.h>
 #include <netinet/in.h>
@@ -38,6 +37,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "commandline.h"
  
