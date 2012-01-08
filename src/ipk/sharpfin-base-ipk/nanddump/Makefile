@@ -20,6 +20,7 @@
 include ../../../Rules.mak
 
 all:
+	mkdir -p files/usr/sbin
 	$(CC) -o files/usr/sbin/nanddump nanddump.c	
 	chmod -R 755 files
 	../../../../devtools/bin/ipkg-build -o root -g root files

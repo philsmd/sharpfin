@@ -35,7 +35,7 @@ files/bin/sharpfin: busybox/busybox
 	cp busybox/busybox files/bin/sharpfin
 
 busybox/busybox:
-	cd busybox; make CROSS_COMPILE=$(CROSS) ARCH=arm; make CROSS_COMPILE=$(CROSS) ARCH=arm install
+	(cd busybox; make CROSS_COMPILE=$(CROSS) ARCH=arm; make CROSS_COMPILE=$(CROSS) ARCH=arm install)
 
 nanddump/files/usr/sbin/nanddump:
-	cd nanddump; make CROSS_COMPILE=$(CROSS) ARCH=arm
+	(cd nanddump; make CROSS_COMPILE=$(CROSS) ARCH=arm)
