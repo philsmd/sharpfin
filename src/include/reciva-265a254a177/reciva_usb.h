@@ -1,0 +1,2 @@
+#define RECIVA_USB_IOCTL_BASE  'U'
+#define IOC_USB_POWER         _IOW(RECIVA_USB_IOCTL_BASE, 0, int)
