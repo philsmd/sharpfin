@@ -1,14 +1,14 @@
 Package: sharpfin-base
 Priority: optional
-Version: 0.2-alpha20080510
+Version: 0.3-alpha20120108
 Architecture: arm
-Maintainer: Sharpfin Project (http://www.sharpfin.zevv.nl/)
-Source: http://www.sharpfin.zevv.nl/gpl
+Maintainer: Sharpfin Project (http://www.pschmidt.it/sharpfin/)
+Source: http://www.pschmidt.it/sharpfin/gpl
 Depends: libc6, reciva-kernel
-Provides: httpd, login, telnetd, ftpd, rdate
+Provides: httpd, login, telnetd, ftpd, rdate, nanddump
 Section: extras
 Description: sharpfin-base contains the basic files required to run
  Sharpfin applications.  It includes /bin/sharpfin, which is a cutdown
- version of busybox, and provides the web server, login, ftpd,rdate
- and telnetd features.
+ version of busybox, and provides the web server, login, ftpd, rdate,
+ nanddump and telnetd features.
  $Revision: 281 $
