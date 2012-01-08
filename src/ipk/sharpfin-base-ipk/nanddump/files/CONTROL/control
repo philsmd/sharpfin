@@ -1,0 +1,14 @@
+Package: sharpfin-nanddump
+Priority: optional
+Version: 0.1
+Architecture: arm
+Maintainer: Sharpfin Project (http://www.pschmidt.it/sharpfin/)
+Source: http://www.pschmidt.it/sharpfin/gpl
+Depends: sharpfin-base
+Section: extras
+Provides: nanddump_files
+Description: sharpfin-nanddump contains the nanddump backup files.
+ The nanddump utility is installed by default with the sharpfin-base package.
+ .
+ $Revision: 243 $
+ .
