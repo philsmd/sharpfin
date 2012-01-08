@@ -153,7 +153,11 @@ int webserver_command(int weblistener) {
 							
 						/* wait for buffers to empty */
 						// FIXME - shouldn't need a sleep
+#ifdef WINDOWS
+						Sleep(2);
+#else
 						sleep(2);
+#endif
 						printf("OK") ;
 					}
 				}
