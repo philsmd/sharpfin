@@ -26,5 +26,5 @@ REV="`cat libreciva/README | grep '$Revision' | cut -d' ' -f2`"
 (cd libreciva ; make clean )
 find libreciva -name "*~" -exec /bin/rm -f {} \;
 find libreciva -name "~*" -exec /bin/rm -f {} \;
-tar cf libreciva-src-$REV.tar --exclude .svn LICENSE Rules.mak libreciva include
+tar cfh libreciva-src-$REV.tar --exclude .git LICENSE Rules.mak libreciva include/reciva
 bzip2 libreciva-src-$REV.tar
