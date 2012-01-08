@@ -19,11 +19,11 @@
 # along with this source files. If not, see
 # <http://www.gnu.org/licenses/>.
 
-PATCHVER := 0.4-alpha20080510
-WWWVER := 0.6
+PATCHVER := 0.5-alpha20120101
+WWWVER := 0.9
 TDVER := 0.1
 HDVER := 0.1
-BSVER := 0.2-alpha20080510 
+BSVER := 0.3-alpha20120101
 FDVER := 0.1
 
 WWWIPK := sharpfin-www_$(WWWVER)_arm.ipk
