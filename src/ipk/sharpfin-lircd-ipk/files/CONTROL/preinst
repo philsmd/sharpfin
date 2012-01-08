@@ -1,0 +1,4 @@
+#!/bin/sh
+
+rm /usr/sbin/lircd.sh
+exit 0
