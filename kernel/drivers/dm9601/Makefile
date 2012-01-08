@@ -23,7 +23,7 @@
 # along with this source files. If not, see
 # <http://www.gnu.org/licenses/>.
 
-CC	= arm-unknown-linux-gnu-gcc
+CC	= arm-9tdmi-linux-gnu-gcc
 CFLAGS  = -DMODULE -D__KERNEL__ -I../../linux_bast/include/linux -Wall -Wstrict-prototypes -O6 -c
 MFLAGS  = -DMODVERSIONS
 SMPFLAGS = -D__SMP__
