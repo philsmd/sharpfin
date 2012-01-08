@@ -1,9 +1,10 @@
 libreciva is a library providing access to the hardware through the reciva
 library.
 
-$Revision: 232 $
+$Revision: 233 $
 
 REVISION HISTORY
 
+233	01 Jan 2012	New release of libreceiva w/ some small adaptions
 232 	23 Oct 2007	Initial test release, which contains many
 			known bugs and shortcomings.

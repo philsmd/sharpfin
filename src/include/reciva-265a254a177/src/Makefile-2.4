@@ -1,0 +1,102 @@
+CROSS_COMPILE = /usr/local/arm/3.3.4/bin/arm-linux-
+CC = $(CROSS_COMPILE)gcc
+LD = $(CROSS_COMPILE)ld
+
+CFLAGS = -MD -D__KERNEL__ -DMODULE -I../include -O2 -Werror -Wunused -DEXPORT_SYMTAB -Wall -Wstrict-prototypes
+
+LCD_DRIVERS = reciva_lcd_mg1203d.o reciva_lcd_ateam.o reciva_lcd_tm13264cbcg.o reciva_lcd_tianma.o reciva_vfd_16sd013ink.o
+
+MODULES = reciva_quad_piher_ci11.o                                    \
+          reciva_quad_piher_20pulse.o                                 \
+          reciva_quad_pins_standard.o                                 \
+          reciva_quad_pins_reversed.o                                 \
+	  reciva_keypad_config869.o				      \
+          reciva_keypad_config933.o                                   \
+          reciva_keypad_config936.o                                   \
+          reciva_keypad_config941.o                                   \
+          reciva_keypad_config949.o                                   \
+          reciva_keypad_config954.o                                   \
+          reciva_keypad_config957.o                                   \
+          reciva_keypad_config965.o                                   \
+          reciva_keypad_config967.o                                   \
+          reciva_keypad_config969.o                                   \
+          reciva_keypad_config974.o                                   \
+          reciva_keypad_config979.o                                   \
+          reciva_keypad_config983.o                                   \
+          reciva_keypad_config985.o                                   \
+          reciva_keypad_config986.o                                   \
+          reciva_keypad_config948.o                                   \
+          reciva_keypad_config989.o                                   \
+          reciva_keypad_config990.o                                   \
+          reciva_keypad_config991.o                                   \
+          reciva_keypad_config992.o                                   \
+          reciva_keypad_config997.o                                   \
+          reciva_keypad_config1006.o                                  \
+          reciva_keypad_config1007.o                                  \
+          reciva_keypad_config1009.o                                  \
+          reciva_keypad_config1011.o                                  \
+          reciva_keypad_config1012.o                                  \
+          reciva_keypad_generic.o                                     \
+          reciva_keypad_softload.o                                    \
+          reciva_keypad_vpro500.o                                     \
+          reciva_keypad_appa_issueb.o                                 \
+          reciva_keypad_allegro.o                                     \
+          reciva_keypad_alto.o                                        \
+          reciva_keypad_potas.o                                       \
+          reciva_keypad_itech_cube.o                                  \
+          reciva_gpio.o                                               \
+          reciva_util.o                                               \
+          reciva_status_pins.o                                        \
+          reciva_lcd_generic.o                                        \
+          $(LCD_DRIVERS)                                              \
+          reciva_leds_potas.o                                         \
+          reciva_backlight_dummy.o                                    \
+          reciva_backlight_potas.o                                    \
+          reciva_backlight_appb.o                                     \
+          reciva_audio_mute.o                                         \
+          reciva_font.o                                               \
+          reciva_font_chinese.o                                       \
+          reciva_font_japanese.o                                      \
+          reciva_slave_mode_controller.o                              \
+          reciva_slave_mode_driver_i2c.o                              \
+          reciva_slave_mode_driver_serial.o                           \
+          reciva_slave_mode_status_master.o                           \
+          reciva_slave_mode_status_slave.o                            \
+          reciva_si4700.o reciva_si4704.o                             \
+          reciva_touchpanel_ekt8120.o                                 \
+          reciva_touchpanel_hl5239.o                                  \
+          reciva_touchpanel_qt60160.o                                 \
+          reciva_uart.o                                               \
+          reciva_i2c_slave.o                                          \
+          reciva_i2c_master.o                                         \
+          reciva_misc_control.o                                       \
+          reciva_usb.o                                                \
+          reciva_dac_monitor.o                                        \
+          reciva_dac_ak4387.o                                         \
+          reciva_tea5767.o                                            \
+          reciva_mode_switch_button.o                                 \
+          reciva_data_bus.o                                           \
+          reciva_gpio_expander_generic.o                              \
+          reciva_gpio_expander_pca9539.o                              \
+          reciva_edge_detector.o                                      \
+	  reciva_adc.o						      \
+
+all: $(MODULES)
+
+DEPS=$(patsubst %.o, %.d, $(MODULES))
+
+reciva_uart_noasm.o: reciva_uart.c
+	$(CC) -c $(CFLAGS) -o $@ $^
+
+reciva_uart.o: reciva_uart_noasm.o uart_fiq.o
+	$(LD) -r -o $@ reciva_uart_noasm.o uart_fiq.o
+
+clean:
+	rm -f *.o *.d *.d.*
+
+.PHONY: clean
+
+-include $(DEPS)
+
+
+

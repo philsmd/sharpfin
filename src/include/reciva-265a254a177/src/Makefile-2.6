@@ -1,0 +1,107 @@
+all: modules
+
+# Utils
+obj-m += reciva_util.o 
+obj-m += reciva_gpio.o
+
+# Keypad
+obj-m += reciva_keypad_generic.o
+obj-m += reciva_keypad_softload.o
+
+# Rotary encoder
+obj-m += reciva_quad_pins_standard.o 
+obj-m += reciva_quad_pins_reversed.o
+obj-m += reciva_quad_piher_20pulse.o
+obj-m += reciva_quad_piher_ci11.o
+
+# Backlight
+obj-m += reciva_backlight_potas.o
+obj-m += reciva_backlight_dummy.o
+obj-m += reciva_backlight_appb.o
+
+# LEDs
+obj-m += reciva_leds_potas.o
+
+# Status pins 
+obj-m += reciva_status_pins.o
+
+# DSA
+obj-m += reciva_dsa.o
+
+# GPIO expander
+obj-m += reciva_gpio_expander_generic.o
+obj-m += reciva_gpio_expander_pca9539.o
+
+# Edge detection
+obj-m += reciva_edge_detector.o
+
+# UART
+obj-m += reciva_uart.o
+
+reciva_uart-y = uart_fiq.o reciva_uart_nofiq.o
+
+$(src)/reciva_uart_nofiq.c: $(src)/reciva_uart.c
+	ln -s reciva_uart.c $@
+
+# Slave mode
+obj-m += reciva_slave_mode_controller.o
+obj-m += reciva_slave_mode_driver_i2c.o
+#obj-m += reciva_slave_mode_driver_serial.o
+#obj-m += reciva_slave_mode_status_master.o
+obj-m += reciva_slave_mode_status_slave.o
+obj-m += reciva_i2c_slave.o
+#obj-m += reciva_i2c_master.o
+
+# XXX Touchpanel
+obj-m += reciva_touchpanel_ekt8120.o
+obj-m += reciva_touchpanel_ekt2101.o
+#obj-m += reciva_touchpanel_hl5239.o
+#obj-m += reciva_touchpanel_qt60160.o
+
+# Fonts
+obj-m += reciva_font.o
+obj-m += reciva_font_chinese.o
+obj-m += reciva_font_japanese.o
+
+# Audio muting
+obj-m += reciva_audio_mute.o
+
+# Misc gpio control
+obj-m += reciva_misc_control.o
+obj-m += reciva_data_bus.o 
+
+# USB
+obj-m += reciva_usb.o
+
+# XXX Audio
+# obj-m += reciva_dac_monitor.o
+obj-m += reciva_dac_ak4387.o
+
+# XXX FM tuner
+obj-m += reciva_si4700.o
+obj-m += reciva_si4704.o
+#obj-m += reciva_tea5767.o
+
+# LCD 
+obj-m += reciva_lcd_generic.o
+obj-m += reciva_lcd_ateam.o
+obj-m += reciva_lcd_tm13264cbcg.o
+obj-m += reciva_lcd_mg1203d.o
+#obj-m += reciva_lcd_tianma.o
+obj-m += reciva_vfd_16sd013ink.o
+obj-m += reciva_vfd_hydra.o
+obj-m += reciva_fb_s3c2410fb.o
+
+obj-m += dab/
+obj-m += lirc/
+obj-m += dac/
+
+clean:
+	rm -f *.mod.c *.mod *.o .*.cmd *.ko
+	rm -rf $(PWD)/tmp
+
+modules:
+	$(MAKE) -C .. SUBDIRS=$(PWD) modules
+
+
+
