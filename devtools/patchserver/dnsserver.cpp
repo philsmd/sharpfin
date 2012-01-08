@@ -27,13 +27,17 @@
 #include "commandline.h"
 #ifdef WINDOWS
 #include <winsock.h>
+int inet_aton(const char *cp, struct in_addr *addr) {
+  addr->s_addr = inet_addr(cp);
+  return (addr->s_addr == INADDR_NONE) ? 0 : 1;
+}
 #else
-#include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/tcp.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #endif
+#include <unistd.h>
 
 #include <sys/types.h>
 #include <string.h>
@@ -77,7 +81,6 @@ struct sockaddr_in *dnsserver_createrelay(char *nameserver)
 		dnsserver_address.sin_family      = AF_INET;
 		dnsserver_address.sin_port        = htons(53);
 		if (inet_aton(nameserver, &dnsserver_address.sin_addr)==0) {
-
 			printf("dnsserver: error, invalid nameserver ip address: %s\n", nameserver) ;
 			close(clientfd) ;
 			return NULL ;
@@ -115,7 +118,7 @@ int dnsserver_openlistener()
 		sockfd=(-1) ;
 	}
 
-	bzero((char *) &serv_addr, sizeof(serv_addr));
+	memset((char *) &serv_addr, 0, sizeof(serv_addr));
 	serv_addr.sin_family      = AF_INET;
 	serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 	serv_addr.sin_port        = htons(CONFIG_DNSSERVER_PORT);
