@@ -1,7 +1,5 @@
 # Sharpfin project
-# Copyright (C) by Steve Clarke and Ico Doornekamp
-# 2011-11-30 Philipp Schmidt
-#   Added to github 
+# Copyright (C) by Philipp Schmidt
 # 
 # This file is part of the sharpfin project
 #  
@@ -19,22 +17,12 @@
 # along with this source files. If not, see
 # <http://www.gnu.org/licenses/>.
 
-include ../../Rules.mak
+include ../../../Rules.mak
 
-all: nanddump/files/usr/sbin/nanddump files/bin/sharpfin
-	cp nanddump/files/usr/sbin/nanddump files/usr/sbin/
+all:
+	$(CC) -o files/usr/sbin/nanddump nanddump.c	
 	chmod -R 755 files
-	../../../devtools/bin/ipkg-build -o root -g root files
-
+	../../../../devtools/bin/ipkg-build -o root -g root files
 clean:
-	/bin/rm -f files/bin/sharpfin files/usr/sbin/nanddump *.ipk
-	(cd nanddump; make clean)
-
-files/bin/sharpfin: busybox/busybox
-	cp busybox/busybox files/bin/sharpfin
-
-busybox/busybox:
-	cd busybox; make CROSS_COMPILE=$(CROSS) ARCH=arm
-
-nanddump/files/usr/sbin/nanddump:
-	cd nanddump; make CROSS_COMPILE=$(CROSS) ARCH=arm
+	/bin/rm -f files/usr/sbin/nanddump
+	/bin/rm -f *.ipk
