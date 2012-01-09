@@ -1,0 +1,67 @@
+SDE - Sharpfin Development Environment
+
+
+This suite of programmes is a cross-compiler which has been built
+to run under cygwin on an X86 PC.
+
+PREREQUISITES
+
+You must have Cygwin installed,
+
+CONTENTS
+
+This compiler suite includes the following files:
+
+/opt/crosstool             - crosstool cross-compiler
+                             GCC version 4.1.0
+		             Glibc 2.3.2
+		 
+/etc/profile.d/sharpfin.sh - Sharpfin configuration bash 
+                             startup script
+			     
+USAGE
+
+Start Cygwin via the start-menu "Cygwin Bash Shell". The compiler
+is in the path - it is called 'arm-9tdmi-linux-gnu-gcc'.
+
+It is usual to use Makefiles, and in these, it is usual to refer to
+the compiler as $(CROSS)gcc, and define CROSS in a top level Rules.mak
+file.
+
+
+
+GETTING STARTED
+---------------
+
+
+These notes are correct at the time of going to print, however, always
+check with the sharpfin Wiki for the latest instructions.
+
+
+REPOSITORY
+
+The sharpfin repository can be accessed using SVN.  When in the 
+bash cygwin environment, change to an empty directory, and type
+
+   git clone git://github.com/philsmd/sharpfin.git
+
+svn is part of cygwin, so if it is missing, you will need to go back
+to your cygwin install.
+
+BUILDING
+
+To build the libreciva library and a test application, cd into git/src
+and type:
+
+  make
+  
+You can also type:
+
+  make clean
+  make HARDWARE=devel CROSS=
+  
+To build the ncurses library, which means that applications are built native
+for the local PC using the normal gcc.
+  
+Not all applications will work in this configuration.
+
