@@ -1,0 +1,11 @@
+﻿;!@Install@!UTF-8!
+Title="Sharpfin SDE setup"
+BeginPrompt="Do you want to install Sharpfin SDE now? This could take a while."
+FinishMessage="All needed files for the Sharpfin SDE were successfully extracted"
+GUIFlags="8"
+OverwriteMode="0"
+ExtractPathText="Select extraction path"
+ExtractPathTitle="Sharpfin SDE setup"
+ExtractCancelText="Abort"
+RunProgram="run.bat"
+;!@InstallEnd@!
