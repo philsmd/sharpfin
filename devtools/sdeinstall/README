@@ -1,0 +1,68 @@
+Version: $Id: readme.txt 6 2012-01-09 10:11:28Z phil $
+
+SDE INSTALL
+===========
+This sde-install.exe is able to setup the toolchain needed to compile and develop
+apps and packages for Sharpfin. Install this package on WIN only (therefore it is
+packaged in a exe) and be sure before installing that cygwin is correctly installed
+at C:/Cygwin.
+
+config.txt
+==========
+This file is used by the Makefile to generate the SFX (SelF Extracting) exe
+file that contains the toolchain. It specifies some settings e.g. the prompts,
+executable scripts etc.
+
+run.bat
+=======
+This file will be launched immediately after the user clicks on the EXE, it
+actually only starts install.sh which does the main job.
+
+install.sh
+==========
+This script file extracts the toolchain to the right location at /opt/crosstool.
+Cywin is needed to install the SDE correctly.
+
+sde.txt
+=======
+This file contains some non development specific explanation about sde-install.
+
+sharpfin.sh
+===========
+Sharpfin.sh will be added to your .profile files such that the environment to use
+the crosstools and this SDE is setup correctly.
+
+sharpfin_sfx.xml
+================
+This file is NOT use by the Makefile but it is the settings file to be used
+with 7-Zip SFX Maker. This tool can be installed (open source) from:
+http://teejee2008.wordpress.com/7-zip-sfx-maker/
+If you like you could add also a ICON with Resource Hacker available at:
+http://delphi.icm.edu.pl/ftp/tools/ResHack.zip
+
+7z.sfx,7zS.sfx,7zS2.sfx and 7zD.sfx
+===================================
+This a different versions of the 7z SFX (Self Extracting) Archive Tool that can be 
+defined with a switch in the Makefile.
+The Makefile assumes that it is located directly in the 7-ZIP Program folder, if NOT
+please set the flag to match your folder.
+7zS.sfx seems to implement all options that we need (and have defined in config.txt),
+instead 7z.sfx (installed by default w/ 7z) lacks of some features.
+You may need to download and install the 7z_extra archive to get these additional
+tools.
+It is available from here:
+http://sourceforge.net/projects/sevenzip/files/7-Zip/[NewestVersion]/7z[NewestVerNum]_extra.7z
+If you need to install it, please copy the content of the folder to
+C:\Program Files\7-Zip\
+and then the sde-install Makefile can find it.
+
+PREREQUISITES
+=============
+You need to have 7z installed and its directory in your $PATH and you also need Cygwin.
+The Makefile also assumes that 7z.sfx is in the same directory as 7z and installed in
+C:\Program Files\7-Zip
+
+UPDATE HISTORY
+==============
+2012-01-09	0.2	Second Alpha Release. Use of new crosstools, Makefile, added to Github
+2008		0.1	Initial Alpha Release.
