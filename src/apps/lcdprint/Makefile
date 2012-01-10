@@ -21,7 +21,7 @@
 
 BIN   	  := lcdprint
 SRC 	  := lcdprint.c
-CFLAGS    += -I../../libreciva/include
-LDFLAGS   += -L../../libreciva -lreciva
+CFLAGS    += -I$(CURDIR)/../../libreciva/include/
+LDFLAGS   += -L$(CURDIR)/../../libreciva -lreciva
 include ../../Rules.mak
 
