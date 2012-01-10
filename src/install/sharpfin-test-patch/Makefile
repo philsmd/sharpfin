@@ -30,7 +30,8 @@ sharpfin-test.patch: patch/install-me patch/lcdprint patch/readme.txt patch/lcdp
 	bzip2 patch.tar
 	mv patch.tar.bz2 sharpfin-test.patch
 
-patch/lcdprint: ../../apps/lcdprint/lcdprint
+patch/lcdprint: 
+	(cd ../../apps/lcdprint/;make)
 	cp -f ../../apps/lcdprint/lcdprint patch/lcdprint
 	
 clean:
