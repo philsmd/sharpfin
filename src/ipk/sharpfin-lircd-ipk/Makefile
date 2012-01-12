@@ -29,7 +29,7 @@ clean:
 	/bin/rm -f *.ipk files/usr/sbin/lircd-r files/usr/sbin/irsend
 
 files/usr/sbin/lircd-r:
-	(cd lirc/daemons;$(CC) -I.. -DHAVE_CONFIG_H -O2 -g -Wall lircd.c ir_remote.c config_file.c hw-types.c release.c hw_mplay.c hw_irlink.c hw_i2cuser.c hw_accent.c hw_bte.c hw_creative.c hw_creative_infracd.c hw_default.c hw_devinput.c hw_dsp.c hw_ea65.c hw_hiddev.c hw_livedrive_common.c hw_livedrive_midi.c hw_livedrive_seq.c hw_logitech.c hw_mouseremote.c hw_mp3anywhere.c hw_pcmak.c hw_pinsys.c hw_pixelview.c hw_silitek.c hw_tira.c hw_udp.c hw_uirt2.c hw_uirt2_common.c hw_uirt2_raw.c hw_usbx.c receive.c serial.c transmit.c input_map.c -o ../../files/usr/sbin/lircd-r)
+	(cd lirc/daemons;$(CC) -I.. -DHAVE_CONFIG_H -O2 -g -Wall -o ../../files/usr/sbin/lircd-r lircd.c ir_remote.c config_file.c hw-types.c release.c hw_default.c receive.c transmit.c)
 
 files/usr/sbin/irsend:
 	(cd lirc/tools;$(CC) -I.. -DHAVE_CONFIG_H -O2 -g -Wall irsend.c -o ../../files/usr/sbin/irsend)

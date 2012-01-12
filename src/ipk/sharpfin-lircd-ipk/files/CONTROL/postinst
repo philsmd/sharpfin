@@ -4,9 +4,9 @@ CONFVAL=`readconfig`
 RECIVA_HW_CONFIG=$((0x$CONFVAL & 0x3FF)) 
 if test -f /etc/config/lircd_config$RECIVA_HW_CONFIG.conf
 then
-    cp /etc/config/lircd_config$RECIVA_HW_CONFIG.conf /etc/config/lircd.conf
+    ln -s /etc/config/lircd_config$RECIVA_HW_CONFIG.conf /etc/config/lircd_config
 else
-    cp /etc/config/lircd_config1011.conf /etc/config/lircd.conf
+    ln -s /etc/config/lircd_config1011.conf /etc/config/lircd_config
 fi
 
 killall lircd
@@ -16,6 +16,14 @@ if test `ls -l /usr/sbin/lircd  | awk '{ print $5 }'` -eq 51
 then
     echo ok
 else
-    mv /usr/sbin/lircd /usr/sbin/lircd.orig >> /mnt/debug/patch.log 2>&1
+    if [ -f "/usr/sbin/lircd.orig" ]    
+    then
+        mv /usr/sbin/lircd /usr/sbin/lircd.orig >> /mnt/debug/patch.log 2>&1
+    else
+        mv /usr/sbin/lircd /usr/sbin/lircd.repl >> /mnt/debug/patch.log 2>&1
+    fi
     mv /usr/sbin/lircd.sh /usr/sbin/lircd >> /mnt/debug/patch.log 2>&1
 fi
+lircd
+echo "Attention: a reboot may be needed such that lircd is working, I won't do"
+echo "that for you. Please reboot if the Remote (or the interface) is not working"
