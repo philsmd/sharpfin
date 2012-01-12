@@ -8,8 +8,8 @@
 #define DEV_LIRCM	"lircm"
 
 /* config file names - beneath SYSCONFDIR (default /etc) */
-#define CFG_LIRCD	"config/lircd.conf"
-#define CFG_LIRCM	"config/lircmd.conf"
+#define CFG_LIRCD	"lircd.conf"
+#define CFG_LIRCM	"lircmd.conf"
 
 /* config file names - beneath $HOME or SYSCONFDIR */
 #define CFG_LIRCRC	"lircrc"
@@ -57,9 +57,6 @@
 
 /* Define if forkpty is available */
 #define HAVE_FORKPTY 1
-
-/* Define if the libftdi library is installed */
-/* #undef HAVE_FTDI */
 
 /* Define to 1 if you have the `gethostname' function. */
 #define HAVE_GETHOSTNAME 1
@@ -200,10 +197,10 @@
 #define HW_DEFAULT hw_default
 
 /* Text string signifying which driver is configured */
-#define LIRC_DRIVER "userspace"
+#define LIRC_DRIVER "serial"
 
 /* Define to include most drivers */
-#define LIRC_DRIVER_ANY 1
+/* #undef LIRC_DRIVER_ANY */
 
 /* Define if devfs support is present in current kernel */
 /* #undef LIRC_HAVE_DEVFS */
@@ -214,8 +211,14 @@
 /* Set the IRQ for the lirc driver */
 /* #undef LIRC_IRQ */
 
-/* Set the default tty used by the drivers accessing /dev/ttyX */
-/* #undef LIRC_IRTTY */
+/* Set the default tty used by the irman/remotemaster driver */
+#define LIRC_IRTTY ""
+
+/* Define if you want to use lirc_it87 with an Asus Digimatrix */
+/* #undef LIRC_IT87_DIGIMATRIX */
+
+/* Set the device major for the lirc driver */
+#define LIRC_MAJOR 61
 
 /* Define if you want to cross-compile for the SA1100 */
 /* #undef LIRC_ON_SA1100 */
@@ -262,9 +265,8 @@
 /* modifiable single-machine data */
 #define LOCALSTATEDIR "/var"
 
-/* Define to the sub-directory in which libtool stores uninstalled libraries.
-   */
-#define LT_OBJDIR ".libs/"
+/* Define to use long long IR codes */
+#define LONG_IR_CODE 1
 
 /* define in maintainer mode */
 /* #undef MAINTAINER_MODE */
@@ -308,14 +310,11 @@
 /* define if you want to log to syslog instead of logfile */
 /* #undef USE_SYSLOG */
 
-/* /var/run */
-#define VARRUNDIR "/var/run"
-
 /* Version number of package */
-#define VERSION "0.9.0"
+#define VERSION "0.8.3"
 
 /* Define to 1 if the X Window System is missing or not being used. */
-/* #undef X_DISPLAY_MISSING */
+#define X_DISPLAY_MISSING 1
 
 /* Define to empty if `const' does not conform to ANSI C. */
 /* #undef const */
@@ -342,23 +341,21 @@
 #define LIRC_DRIVER_DEVICE      DEVDIR "/" DEV_LIRC
 #endif /* LIRC_HAVE_DEVFS */
 
-#define LIRCD			VARRUNDIR "/" DEV_LIRCD
-#define LIRCM			VARRUNDIR "/" DEV_LIRCM
+#define LIRC_IRTTY ""
+
+#define LIRCD			DEVDIR "/" DEV_LIRCD
+#define LIRCM			DEVDIR "/" DEV_LIRCM
 
 #define LIRCDCFGFILE		SYSCONFDIR "/" CFG_LIRCD
 #define LIRCMDCFGFILE		SYSCONFDIR "/" CFG_LIRCM
 
-#define LIRCDOLDCFGFILE		SYSCONFDIR "/" CFG_LIRCD
-#define LIRCMDOLDCFGFILE	SYSCONFDIR "/" CFG_LIRCM
-
 #define LIRCRC_USER_FILE	"." CFG_LIRCRC
 #define LIRCRC_ROOT_FILE	SYSCONFDIR "/" CFG_LIRCRC
-#define LIRCRC_OLD_ROOT_FILE	SYSCONFDIR "/" CFG_LIRCRC
 
 #define LOGFILE			LOCALSTATEDIR "/log/" LOG_LIRCD
 #define LIRMAND_LOGFILE		LOCALSTATEDIR "/log/" LOG_LIRMAND
 
-#define PIDFILE                 VARRUNDIR "/" PID_LIRCD
+#define PIDFILE                 LOCALSTATEDIR "/run/" PID_LIRCD
 
 #define LIRC_RELEASE_SUFFIX     "_UP"
 
