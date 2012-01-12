@@ -1,4 +1,4 @@
-/*      $Id: transmit.h,v 5.7 2010/04/02 10:26:57 lirc Exp $      */
+/*      $Id: transmit.h,v 5.5 2004/11/20 11:43:35 lirc Exp $      */
 
 /****************************************************************************
  ** transmit.h **************************************************************
@@ -17,7 +17,8 @@
 
 #define WBUF_SIZE (256)
 
-struct sbuf {
+struct sbuf
+{
 	lirc_t *data;
 	lirc_t _data[WBUF_SIZE];
 	int wptr;
@@ -28,10 +29,21 @@ struct sbuf {
 	lirc_t sum;
 };
 
+static inline lirc_t time_left(struct timeval *current,struct timeval *last,
+			lirc_t gap)
+{
+	unsigned long secs,diff;
+	
+	secs=current->tv_sec-last->tv_sec;
+	
+	diff=1000000*secs+current->tv_usec-last->tv_usec;
+	
+	return((lirc_t) (diff<gap ? gap-diff:0));
+}
+
 void init_send_buffer(void);
-inline void set_bit(ir_code * code, int bit, int data);
-int init_send(struct ir_remote *remote, struct ir_ncode *code);
-int init_sim(struct ir_remote *remote, struct ir_ncode *code, int repeat_preset);
+inline void set_bit(ir_code *code,int bit,int data);
+int init_send(struct ir_remote *remote,struct ir_ncode *code);
 
 extern struct sbuf send_buffer;
 
