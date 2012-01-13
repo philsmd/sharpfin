@@ -27,7 +27,8 @@ all: nanddump/files/usr/sbin/nanddump files/bin/sharpfin
 	../../../devtools/bin/ipkg-build -o root -g root files
 
 clean:
-	/bin/rm -f files/bin/sharpfin files/usr/sbin/nanddump *.ipk
+	/bin/rm -f files/bin/sharpfin files/usr/sbin/nanddump *.ipk 
+	/bin/rm -rf busybox/_install/
 	(cd nanddump; make clean)
 	(cd busybox; make clean)
 
