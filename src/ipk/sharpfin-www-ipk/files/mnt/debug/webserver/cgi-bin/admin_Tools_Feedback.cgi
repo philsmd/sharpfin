@@ -2,7 +2,10 @@
 
 SHARPFIN="`ipkg list_installed | grep sharpfin | sed -e 's/ - $//g' | sed -e 's/ - /_/g'`"
 APPVER="`ipkg list_installed | grep reciva-app | cut -d' ' -f3`"
-VERSION="`. readconfig.sh ; echo $RECIVA_HW_CONFIG`;$APPVER;`/usr/bin/get-current-service-pack-version`;`/usr/bin/get-current-kernel-package-version`"
+CONFVAL=`readconfig`
+RECIVA_HW_CONFIG=$((0x$CONFVAL & 0x3FF))
+. readconfig.sh
+VERSION="`echo $RECIVA_HW_CONFIG`;$APPVER;`/usr/bin/get-current-service-pack-version`;`/usr/bin/get-current-kernel-package-version`"
 
 echo -e "Content-type text/html\r\n\r"
 cat << ..EOF..
@@ -47,11 +50,13 @@ third party.</p>
           <textarea name="feedback" cols="60" rows="10" id="feedback"></textarea>
         </label></td>
       </tr>
+      <tr>
+        <td colspan="2" style="text-align:center">
+          <p>&nbsp;</p>
+          <input type="submit" name="Submit" value="Submit" />
+        </td>
+      </tr>
     </table>
-    <p>&nbsp;</p>
-    <p>
-      <input type="submit" name="Submit" value="Submit" />
-    </p>
     <input name="success" type="hidden" id="success" value="1" />
   </form>
 <p><font size=1><i>We would appreciate it if you could provide a name or alias on this form so we can ignore duplicates
