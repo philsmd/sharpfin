@@ -598,3 +598,20 @@ char ** lcd_hwgetscreen() {
 enum slcd_e_arrows * lcd_hwgetselrows() {
 	return (enum slcd_e_arrows *) lcd.scr.piArrows ;
 }
+
+/**
+ * lcd_grab_region
+ *
+ * lcd_grab_region function grabs the contents of the screen
+ * buffer 
+ **/
+struct bitmap_data*lcd_grab_region(int top,int left,int width,int height)
+{
+	struct bitmap_data*bitmap=(struct bitmap_data*)malloc(sizeof(struct bitmap_data));
+	bitmap->top=top;
+	bitmap->left=left;
+	bitmap->width=width;
+	bitmap->height=height;
+	lcd_hwdoioctl(IOC_LCD_GRAB_SCREEN_REGION,bitmap); 
+	return bitmap;
+}
