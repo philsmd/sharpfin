@@ -1,0 +1,11 @@
+lcdshow
+
+OVERVIEW
+
+This is a simple program, to display the text on the LCD display.  It is
+provided for use in install scripts, to inform the user on the current state
+of display.
+
+
+EXAMPLE
+lcdshow

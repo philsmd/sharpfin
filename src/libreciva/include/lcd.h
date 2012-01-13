@@ -485,6 +485,11 @@ void lcd_dumpscreen(char *dest, int maxlen) ;
 void lcd_dumpvars(lcd_handle *h, char *str, int n) ;
 
 /**
+ * lcd_grab_region
+ **/
+struct bitmap_data*lcd_grab_region(int top,int left,int width,int height) ;
+
+/**
  * Special Characters
  *
  * These unicode character sequences are interpreted in the
