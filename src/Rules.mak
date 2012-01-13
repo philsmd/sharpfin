@@ -31,6 +31,7 @@ export CC        := $(CROSS)gcc
 export LD        := $(CROSS)gcc
 export AR        := $(CROSS)ar
 export MAKE      := make
+export DIRTOP	 := $(shell cd $(dir $(lastword $(MAKEFILE_LIST)));pwd)
 
 ##############################################################################
 # Stuff for quiet/verbose
@@ -52,7 +53,7 @@ OBJS      := $(subst .c,.o, $(SRC))
 
 .PHONY: $(SUBDIRS) $(SUBMAKES) $(LIB) $(BIN)
 
-all: $(SUBDIRS) $(SUBMAKES) $(LIB) $(BIN)
+all: $(DIRTOP)/libreciva/libreciva.a $(SUBDIRS) $(SUBMAKES) $(LIB) $(BIN)
 
 $(SUBDIRS):
 	$(P) " [SUBDIR] $(shell pwd)/$@"
@@ -73,6 +74,16 @@ $(LIB): $(OBJS)
 $(BIN): $(OBJS)
 	$(P) " [LINK  ] $@"
 	$(E) $(LD) -o $@ $^ $(LDFLAGS)
+
+$(DIRTOP)/libreciva/libreciva.a:
+	echo $(dir $(CURDIR))
+	echo $(DIRTOP)
+ifneq ($(dir $(CURDIR)),$(DIRTOP)/)
+	(cd $(DIRTOP)/libreciva/;make)
+#else
+# fake the building, it will be builded anyway right now
+#	(touch $(DIRTOP)/libreciva/libreciva.a)
+endif
 
 clean:	
 	$(P) " [CLEAN ] $(shell pwd)"
