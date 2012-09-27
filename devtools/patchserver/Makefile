@@ -70,7 +70,7 @@ $(TARGET)/patchserver_$(VERSION).zip: pdf testpatch $(DISTFILESWIN)
 	  which zip>/dev/null 2>&1; \
 	  if [ "$$?" -eq 0 ]; \
 	  then \
-	      zip $(DIST)/patchserver_$(VERSION) $(DISTFILESWIN).zip $(TESTPATHFILES) $$docfile; \
+	      zip $(TARGET)/patchserver_$(VERSION).zip $(DISTFILESWIN) $(TESTPATHFILES) $$docfile; \
 	  else \
 	  	which 7z>/dev/null 2>&1; \
 		if [ "$$?" -eq 0 ]; \
