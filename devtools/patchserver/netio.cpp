@@ -41,9 +41,10 @@
 
 #include "commandline.h"
  
-void net_putc(int fd, unsigned char c)
+void net_putc(int fd, char c)
 {
-	write(fd, &c, 1) ;
+	//write(fd, &c, 1) ;
+	send(fd, &c, 1,0) ;
 }
 
 void net_printf(int fd, const char *fmt, ...) 
@@ -55,14 +56,15 @@ void net_printf(int fd, const char *fmt, ...)
 	va_start(va, fmt) ;
 	vsnprintf(buf, 1023, fmt, va) ;
 	va_end(va) ;
-	write(fd, buf, strlen(buf)) ;
+	//write(fd, buf, strlen(buf)) ;
+	send(fd, buf, strlen(buf),0) ;
 }
 
 int net_getc(int fd)
 {
-	unsigned char c[2] ;
+	char c[2] ;
 	int r ;
-	r=read(fd, c, 1) ;
+	r=recv(fd, c, 1,0);
 	if (r==0) return (-1) ;
 	else return (c[0]) ;
 }
@@ -78,7 +80,7 @@ int net_scanf(int fd, const char *fmt, ...)
 	d=0 ;
 	do {
 		c=net_getc(fd) ;
-		if (c<0) return 0 ;
+		if (c<0) return 0 ; 
 		if (c!='\r' && c!='\n') buf[d++]=c ;
 		else if (c=='\n' || d==1023) buf[d++]='\0' ;
 	} while (buf[d-1]!='\0' && d<1024) ;
