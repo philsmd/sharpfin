@@ -173,7 +173,7 @@ void dump_dns_response(unsigned char *p, int len)
 int dnsserver_command(int sockfd, struct sockaddr_in *dnsserver_address)
 {
 	int i, len, sum ;
-	unsigned char p[RESPONSE_LEN_MAX] ;
+	char p[RESPONSE_LEN_MAX] ;
 	int s, clilen, pid;
 	int resplen, ipaddrpos ;
 	unsigned char *req ;
