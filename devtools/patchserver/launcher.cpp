@@ -164,6 +164,15 @@ int WinMain(HINSTANCE hwnd,HINSTANCE,LPSTR orgargv,int) {
 			!getregistry(HKEY_LOCAL_MACHINE, REGKEY_DNS, REGKEY_DNS_KEY2, dnsserver, MAX))
 		strcpy(dnsserver, "x.x.x.x") ;
 	
+
+	// do not allow more than one dnsserver (no secondary), space-separated
+	if (dnsserver!=0 && strlen(dnsserver)>0) {
+		char*p=strstr(dnsserver," ");
+		if (p) {
+		      dnsserver[p-dnsserver]='\0';
+			
+		}
+	}
 	/* Ask the user for the patch file and DNS server */
 	do {
 		selectedpatch=selectpatch(0, dnsserver, numpatches, (char **)patches) ;
