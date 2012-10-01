@@ -1,5 +1,3 @@
-Version: $Id: readme.txt 266 2008-04-14 10:11:28Z steve $
-
 PATCHSERVER
 ===========
 
@@ -41,7 +39,8 @@ or it contains a list of local / remote files to offer:
 UPDATE HISTORY
 ==============
 
-SVN Release = $Revision: 266 $
+2012-10-01	0.7rc2	Windows network fix (send/receive instead of
+			write/read)
 2008-04-13	0.7rc1	Significant re-design.  No longer relies on
 			posix style threads.  Supports reciva upgrades
 			without having to install webserver.
