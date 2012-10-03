@@ -39,6 +39,9 @@ or it contains a list of local / remote files to offer:
 UPDATE HISTORY
 ==============
 
+2012-10-03	0.7rc3	Fix: Patchserver disappeared after starting
+			patchserver-commandline.exe from the launcher
+			because of runas parameter on windows XP and below
 2012-10-01	0.7rc2	Windows network fix (send/receive instead of
 			write/read)
 2008-04-13	0.7rc1	Significant re-design.  No longer relies on
