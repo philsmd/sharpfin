@@ -114,7 +114,8 @@ bool createCommandLineProcess(char**args,int argsize) {
 	int currParamLength=0;
 	char paramString[maxParamLength];
 	strcpy(paramString,"");
-	for (int i=0;i<argsize-1;i++) {
+	int i;
+	for (i=0;i<argsize-1;i++) {
 		if ((currParamLength+strlen(args[i])+2)>maxParamLength||args[i]==NULL) {
 			break;
 		}
@@ -130,12 +131,56 @@ bool createCommandLineProcess(char**args,int argsize) {
 	if (!CreateProcess(cygwinStart,paramString,0,0,0,0,0,0,&si,&pi)) {
 		return FALSE;
 	}
-
 	return TRUE;
 }
 
+char * getWindowsVersion() {
+ 	FILE *fp;
+	int status;
+	char * ret=NULL;
+	int buf_size=1024;
+	char win_ver[buf_size];
+	char * systemroot=NULL;
+	char * systemrootName=NULL;
+	/* look for cygwin in the path */
+	if (getenv("COMSPEC")!=NULL) systemrootName="COMSPEC" ;
+	if (getenv("Comspec")!=NULL) systemrootName="Comspec" ;
+	if (getenv("comspec")!=NULL) systemrootName="comspec" ;
+	if (getenv("ComSpec")!=NULL) systemrootName="ComSpec" ;
+	if (systemrootName==NULL) {
+		return NULL;
+	}
+	if ((systemroot=getenv(systemrootName))!=NULL) {
+		char * argline=" /c ver";
+		char * cmd=(char *)malloc((strlen(systemroot)+strlen(argline)+1)*sizeof(char));
+		strcpy(cmd,"");	// reset it (to be safe)
+		strcat(cmd,systemroot);
+		strcat(cmd,argline);
+		// since unix/cygwin interprete the \ symbol as delimiter we replace it w/ a \ symbol (or two \\)
+		int k;
+		for (k=0;k<strlen(cmd);k++) {
+			if (cmd[k]=='\\') {
+				cmd[k]='/';
+			}
+		}
+		fp = popen(cmd, "r");
+		free(cmd);
+		if (fp == NULL) {
+			return NULL;	
+		}
+		while (fgets(win_ver, sizeof(win_ver)-1, fp) != NULL) {
+			if (win_ver !=NULL && strlen(win_ver)>0 ) {
+				ret=(char *)malloc(buf_size*sizeof(char));
+				strncpy(ret, win_ver, buf_size-1);
+			}
+		}
+		pclose(fp);
+	}
+	return ret;
+}
+
 int WinMain(HINSTANCE hwnd,HINSTANCE,LPSTR orgargv,int) { 
-	unsigned const int argsize=7;
+	unsigned int argsize=7;
 	char *args[argsize] ;
 	char **patches ;
 	char **patchurl ;
@@ -192,15 +237,41 @@ int WinMain(HINSTANCE hwnd,HINSTANCE,LPSTR orgargv,int) {
 	} while (selectedpatch==(-1) || !( (dnsserver[0]>='0') && (dnsserver[0]<='9') )) ;
 	
 	/* All OK, run the real program */
-	args[0]="cygstart.exe";
- 	args[1]="--action=runas";
-	args[2]="patchserver-commandline.exe";
-	args[3]="-accept";
-	args[4]=dnsserver;
-	args[5]=tarfile ;
-	args[6]=NULL ;
+	int i=0;
+	args[i++]="cygstart.exe";
 
-	FILE * f=fopen(args[2],"r");
+	// check windows version to add cygwin action=runas parameter else don't add runas
+	int win_num=0;
+	char * win_ver=getWindowsVersion();
+	if (win_ver!=NULL) {
+		int win_ver_length=strlen((const char*)win_ver);  // we need const, so we need to cast
+		if (win_ver_length>0) {
+			int k;
+			char c;
+			int pos=0;
+			for (k=0;k<win_ver_length;k++) {
+				c=(char)win_ver[k];
+				if (c>47 && c<58) {	// all numbers in the ascii table: 48-57 
+					win_num=win_num*10+(c-48); // just a small hack (ascii 48 is '0')
+				} else if (win_num!=0) {
+					break;
+				}
+			}
+		}
+		free(win_ver);
+	}
+	if (win_num >= 6) {
+		args[i++]="--action=runas";
+	}
+	int file_argument=i;
+	args[i++]="patchserver-commandline.exe";
+	args[i++]="-accept";
+	args[i++]=dnsserver;
+	args[i++]=tarfile ;
+	args[i++]=NULL ;	// we could use i instead for the last one (but attention when updating)
+	argsize=i;		// update the argsize argument
+
+	FILE * f=fopen(args[file_argument],"r");
 	if (f!=0) {
 		execvp(args[0],args);
 		fclose(f);
