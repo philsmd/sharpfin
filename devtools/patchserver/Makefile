@@ -19,7 +19,7 @@
 # along with this source files. If not, see
 # <http://www.gnu.org/licenses/>.
 
-VERSION := 0.7rc2
+VERSION := 0.7rc3
 TARGET  := dist
 DIST := radiopatch
 DOC  := PatchingTheRecivaRadio
