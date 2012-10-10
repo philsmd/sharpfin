@@ -42,7 +42,7 @@ int main(int argc, char *argv[]) {
 		printf(" len	      - Length of partition (hex)\n") ;
 		printf(" dest.bin     - Destination of partition\n") ;
 		printf(" (start and len must be multiples of 4000(hex))\n\n") ;
-		printf("v%s, http://www.sharpfin.zevv.nl/\n\n",VER) ;
+		printf("v%s, http://www.pschmidt.it/sharpfin/\n\n",VER) ;
 		return 0 ;
 	}
 

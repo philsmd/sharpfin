@@ -30,6 +30,7 @@
 void ConfigureParallelPort( void );
 int EnableIO( void );
 int SetPrinterNumber( int );
+int GetPrinterIndex( int );
 void OutputPpt(U8 value);
 U8 InputPpt( void );
 #endif //__PPT_H__

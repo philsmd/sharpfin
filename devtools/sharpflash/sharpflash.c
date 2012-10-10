@@ -52,7 +52,7 @@ void usage() {
 	       "sharpflash [-p 1|2|3] [-b]\n\n"
 	       "  -r -w      Read flash to file, or write file to flash\n"
            "  -b         Check flash for bad blocks\n"
-	       "  -p <n>     n=1,2 or 3. Use LPT1 (default) LPT2 or LPT3 parallel port\n"
+	       "  -p <n>     n = 1, 2 or 3. Use LPT1 (default) LPT2 or LPT3 parallel port\n"
 	       "  filename   Destination / source filename, the file must be in nanddump format\n"
 	       "  start      Hex start address in NAND for read/write, must be a multiple of 0x4000\n"
 	       "  length     Hex length to read/write. if file is too short,\n"
@@ -65,7 +65,7 @@ void usage() {
 	       "   . - page check OK\n"
 	       "   b - page/block identified as bad\n"
 	       "   B - page/block has just been marked bad\n\n"
-	       "v%s, http://www.sharpfin.zevv.nl/\n\n", VER );
+	       "v%s, http://www.pschmidt.it/sharpfin/\n\n", VER );
 }
 
 /*
@@ -133,49 +133,49 @@ int main(int argc, char *argv[]) {
     U16 flash_id;
 
     // What are we
-	printf("\nSharpfin Flash Programmer. http://www.sharpfin.zevv.nl/\n\n");
+    printf("\nSharpfin Flash Programmer. http://www.pschmidt.it/sharpfin/\n\n");
     ParseCommandLine(argc, argv);
     // Quick sanity check on any command line parameters
-	if ( ((start_address/0x4000)*0x4000) != start_address ) {
-		printf("Start address must be a multiple of 0x4000\n") ;
-		return 1;
-	}
-	if ( ((length/0x4000)*0x4000) != length ) {
-		printf("length must be a multiple of 0x4000\n") ;
-		return 1;
-	}
-    // In both Windows and Linux we must enable access to the I/O ports
-    if (EnableIO() == 0) {
-    	printf("Unable to access I/O ports.\n");
+    if ( ((start_address/0x4000)*0x4000) != start_address ) {
+        printf("Start address must be a multiple of 0x4000\n") ;
         return 1;
     }
-	// Configure the parallel port
+    if ( ((length/0x4000)*0x4000) != length ) {
+        printf("length must be a multiple of 0x4000\n") ;
+        return 1;
+    }
+    // In both Windows and Linux we must enable access to the I/O ports
+    if (EnableIO() == 0) {
+        printf("Unable to access I/O ports.\n");
+        return 1;
+    }
+    // Configure the parallel port
     ConfigureParallelPort();
     // Connect to the Processor
-	cpu_id = JTAG_ReadId();
-	if (cpu_id != JTAG_ID_CPU) {
-		printf("Unable to find S3C2410 processor on JTAG Cable, found %08X\n", cpu_id);
-		return 0 ;
-	}
-	printf("Detected S3C2410 processor on JTAG Cable\n");
+    cpu_id = JTAG_ReadId();
+    if (cpu_id != JTAG_ID_CPU) {
+    	printf("Unable to find S3C2410 processor on JTAG Cable, found %08X\n", cpu_id);
+    	return 0 ;
+    }
+    printf("Detected S3C2410 processor on JTAG Cable\n");
 
     S2410_InitCell();
-	K9Fxx08_JtagInit();
-	K9Fxx08_init();
+    K9Fxx08_JtagInit();
+    K9Fxx08_init();
 
     /*
      * Look for a known NAND Flash
      */
-	flash_id = K9Fxx08_checkid();
-	if (flash_id == JTAG_ID_K9F2808U0C) {
-		printf("Found K9F2808UOC flash on processor, id=0x%04X\n", flash_id );
-	} else if (flash_id == JTAG_ID_K9F5608U0B) {
-		printf("Found K9F5608UOC flash on processor, id=0x%04X\n", flash_id );
-	} else {
-		printf("Unknown flash id on processor bus, found 0x%04X\n", flash_id );
-        return 1;
-	}
-
+    flash_id = K9Fxx08_checkid();
+    if (flash_id == JTAG_ID_K9F2808U0C) {
+        printf("Found K9F2808UOC flash on processor, id=0x%04X\n", flash_id );
+    } else if (flash_id == JTAG_ID_K9F5608U0B) {
+        printf("Found K9F5608UOC flash on processor, id=0x%04X\n", flash_id );
+    } else {
+        printf("Unknown flash id on processor bus, found 0x%04X\n", flash_id );
+    return 1;
+    }
+    
     // If that's all we need to do then exit
     if (mode == GET_JTAG_IDS)
         exit(0);
