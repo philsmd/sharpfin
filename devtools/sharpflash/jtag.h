@@ -84,8 +84,8 @@
  * on the TAP timing requirements & how fast you can crank your CPU.
  */
 INLINE static void JTAG_DELAY( void ) {int _d;for(_d=0 ; _d<1 ; _d++);}
-INLINE static void JTAG_SET(U32 value)	{ OutputPpt((U8) (value & 0xff)); }
-INLINE static char JTAG_GET_TDO() { return (InputPpt() & TDO_H) ? HIGH : LOW ; }
+INLINE static void JTAG_SET(U32 value)	{ OutputPpt(value); }
+INLINE static char JTAG_GET_TDO() { return (InputPpt()&(1<<7)) ? LOW:HIGH; }
 
 // Local function prototypes
 void JTAG_Reset( void );
