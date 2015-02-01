@@ -2,7 +2,7 @@
 
 DESTNAME="`/opt/webserver/cgi-bin/getarg destname`"
 PARTITION="`/opt/webserver/cgi-bin/getarg partition`"
-FAILURL="http://www.pschmidt.it/sharpfin/images/8/8b/Sharpfin-nanddump_0.1.install"
+FAILURL="http://www.sharpfin.org/images/8/8b/Sharpfin-nanddump_0.1.install"
 
 #
 # Show Form

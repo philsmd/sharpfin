@@ -2,8 +2,8 @@ Package: sharpfin-lircd
 Priority: optional
 Version:  0.2
 Architecture: arm
-Maintainer: Sharpfin Project (http://www.pschmidt.it/sharpfin/)
-Source: http://www.pschmidt.it/sharpfin/gpl
+Maintainer: Sharpfin Project (http://www.sharpfin.org/)
+Source: http://www.sharpfin.org
 Depends: sharpfin-base
 Provides: lircd irsend
 Section: extras

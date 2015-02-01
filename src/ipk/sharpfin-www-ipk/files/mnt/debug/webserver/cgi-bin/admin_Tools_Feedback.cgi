@@ -22,9 +22,9 @@ system and application versions.  The form does not automatically collect any pe
 to decide to provide to us.  We only use information you provide to us for analysis purposes, and never pass it on to any
 third party.</p>
 <p><i><b>Please note that the data submitted with this form is not checked daily!</b></i></p>
-<p><i>If you need feedback or support, please contact us through the <a href="http://groups.google.co.uk/group/sharpfin" target="forum">forum</a> or visit the <a href="http://www.pschmidt.it/sharpfin/">Sharpfin homepage</a></i></p>
+<p><i>If you need feedback or support, please contact us through the <a href="http://groups.google.co.uk/group/sharpfin" target="forum">forum</a> or visit the <a href="http://www.sharpfin.org/">Sharpfin homepage</a></i></p>
 
-<form id="form1" name="form1" method="post" action="http://www.pschmidt.it/sharpfin/feedback.php">
+<form id="form1" name="form1" method="post" action="http://www.sharpfin.org/feedback.php">
     <table width="800" border="0">
       <tr>
         <td width="150" valign=top>Radio Model No.</td>

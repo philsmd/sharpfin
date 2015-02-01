@@ -135,6 +135,6 @@ cat << ..END
       <script type="text/javascript">setTimeout(initAjaxControls,200);</script>
 ..END
 else
-    echo "<div>Sharpfin-lircd seems to be NOT installed, therefore it is not possible to use the the Remote Control Interface designed by gforums.<br>Please get the newest version of Sharpfin-lircd from <a href=\"http://www.pschmidt.it/sharpfin/index.php?title=Releases#Lirc\">here</a>.</div>";
+    echo "<div>Sharpfin-lircd seems to be NOT installed, therefore it is not possible to use the the Remote Control Interface designed by gforums.<br>Please get the newest version of Sharpfin-lircd from <a href=\"http://www.sharpfin.org/index.php?title=Releases#Lirc\">here</a>.</div>";
 fi
 </BODY></HTML>

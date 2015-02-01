@@ -65,7 +65,7 @@ void usage() {
 	       "   . - page check OK\n"
 	       "   b - page/block identified as bad\n"
 	       "   B - page/block has just been marked bad\n\n"
-	       "v%s, http://www.pschmidt.it/sharpfin/\n\n", VER );
+	       "v%s, http://www.sharpfin.org\n\n", VER );
 }
 
 /*
@@ -133,7 +133,7 @@ int main(int argc, char *argv[]) {
     U16 flash_id;
 
     // What are we
-    printf("\nSharpfin Flash Programmer. http://www.pschmidt.it/sharpfin/\n\n");
+    printf("\nSharpfin Flash Programmer. http://www.sharpfin.org/\n\n");
     ParseCommandLine(argc, argv);
     // Quick sanity check on any command line parameters
     if ( ((start_address/0x4000)*0x4000) != start_address ) {

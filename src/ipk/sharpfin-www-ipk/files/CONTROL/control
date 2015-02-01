@@ -2,8 +2,8 @@ Package: sharpfin-www
 Priority: optional
 Version: 0.9
 Architecture: arm
-Maintainer: Sharpfin Project (http://www.pschmidt.it/sharpfin/)
-Source: http://www.pschmidt.it/sharpfin/gpl
+Maintainer: Sharpfin Project (http://www.sharpfin.org/)
+Source: http://www.sharpfin.org
 Depends: sharpfin-base sharpfin-httpd
 Section: extras
 Provides: webserver_files

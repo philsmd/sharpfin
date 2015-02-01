@@ -1,6 +1,6 @@
 # About
 
-This project aims to revive the Sharpfin project (now hosted at http://www.pschmidt.it/sharpfin).  
+This project aims to revive the Sharpfin project (now hosted at http://www.sharpfin.org).  
 
 Please help me to revive this great project. We need to adapt the code to new firmwares and test it.  
 Did you also like this project and didn't believe that this project quit so immediately? Then you may be interested in helping me to improve and extend this code.
@@ -10,7 +10,7 @@ This is for developers only. No warranty!
 Thx for all contributors  
 Happy Hacking!  
 
-** WIKI ** [Sharpfin Wiki](http://pschmidt.it/sharpfin "Sharpfin Wiki")
+** WIKI ** [Sharpfin Wiki](http://www.sharpfin.org "Sharpfin Wiki")
 
 
 # Features  
